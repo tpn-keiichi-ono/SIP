@@ -241,8 +241,11 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
-        <p class="note"><b>住宅地・集落</b>は生活空間として緩衝帯に含めません（田畑・人工物は分類結果から自動的に生活空間になります）。下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
+        <p class="note"><b>住宅地・集落</b>は生活空間として緩衝帯に含めません（田畑・人工物は分類結果から自動的に生活空間になります）。住居の点の周囲と、下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
         <div class="ctl"><label for="settleM">人工物の周囲 (m)</label><input type="range" id="settleM" min="0" max="150" step="5" value="0"><span class="val" id="settleMVal">なし</span></div>
+        <p class="note"><b>住居の点</b>：建物の屋根をクリックして点を置きます。点の周囲「住居の半径」が生活空間になります。</p>
+        <div class="btns" id="houseTools"><button data-mode="add">＋住居の点</button><button data-mode="delete">点を削除</button><button id="btnHousesClear">すべての点を削除</button></div>
+        <div class="ctl"><label for="houseRadius">住居の半径 (m)</label><input type="range" id="houseRadius" min="5" max="60" step="5" value="20"><span class="val" id="houseRadiusVal">20 m</span></div>
         <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
         <p class="note" id="settleInfo"></p>
         <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>
@@ -335,14 +338,11 @@ window.SIP_CONFIG = {
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {
-    autoM: 0, // 0 = 描いた多角形だけを生活空間とする（岩場などの誤検出を巻き込まないため）
-    polygons: [
-      [{ x: 395, y: 360 }, { x: 480, y: 355 }, { x: 500, y: 290 }, { x: 560, y: 290 }, { x: 600, y: 370 }, { x: 600, y: 470 }, { x: 500, y: 470 }, { x: 470, y: 430 }, { x: 400, y: 400 }],
-      [{ x: 690, y: 400 }, { x: 760, y: 400 }, { x: 770, y: 460 }, { x: 690, y: 460 }],
-      [{ x: 495, y: 200 }, { x: 550, y: 200 }, { x: 555, y: 270 }, { x: 495, y: 270 }],
-      [{ x: 190, y: 620 }, { x: 265, y: 620 }, { x: 270, y: 690 }, { x: 185, y: 690 }],
-      [{ x: 850, y: 190 }, { x: 900, y: 190 }, { x: 900, y: 240 }, { x: 850, y: 240 }],
-    ],
+    autoM: 0, // 0 = 住居の点と多角形だけを生活空間とする（岩場などの誤検出を巻き込まないため）
+    houseRadiusM: 20, // 住居の点の周囲をこの半径 (m) だけ生活空間とみなす
+    // 住居の位置（最新写真で 1 棟ずつ確認した屋根の中心。画面上で追加・削除できる）
+    houses: [{ x: 512, y: 252 }, { x: 527, y: 298 }, { x: 528, y: 322 }, { x: 552, y: 292 }, { x: 596, y: 301 }, { x: 528, y: 346 }, { x: 547, y: 352 }, { x: 533, y: 363 }, { x: 553, y: 363 }, { x: 505, y: 383 }, { x: 511, y: 394 }, { x: 527, y: 392 }, { x: 548, y: 410 }, { x: 565, y: 400 }, { x: 575, y: 405 }, { x: 574, y: 415 }, { x: 503, y: 425 }, { x: 500, y: 433 }, { x: 491, y: 437 }, { x: 526, y: 430 }, { x: 545, y: 428 }, { x: 552, y: 437 }, { x: 562, y: 430 }, { x: 571, y: 432 }, { x: 577, y: 440 }, { x: 567, y: 442 }, { x: 410, y: 440 }, { x: 433, y: 447 }, { x: 447, y: 445 }, { x: 455, y: 455 }, { x: 575, y: 483 }, { x: 590, y: 470 }, { x: 610, y: 455 }, { x: 612, y: 462 }, { x: 713, y: 431 }, { x: 722, y: 426 }, { x: 704, y: 467 }, { x: 225, y: 642 }, { x: 238, y: 662 }, { x: 222, y: 670 }, { x: 925, y: 190 }],
+    polygons: [],
   },
   // 消失判定 = 最初の観測面積の 5 %、傾向モデル = 線形（推奨）
   simulation: { model: 'linear', thresholdPct: 5, startId: null, jitterM: 12, protectM: 0, seed: 1, manualRatePct: -2 },
@@ -1450,7 +1450,8 @@ const state = {
   W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
   scenes: [], water: null,
   aoiPoints: [], aoiMask: null, aoiDrawing: false,
-  settlement: { autoM: CFG.settlement?.autoM ?? 30, polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
+  settlement: { autoM: CFG.settlement?.autoM ?? 0, houseRadiusM: CFG.settlement?.houseRadiusM ?? 20, houses: (CFG.settlement?.houses || []).map(q => ({ x: q.x, y: q.y })), polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
+  houseTool: null,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60 },
@@ -1513,7 +1514,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
-  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
+  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, houseRadiusM: saved.settlement.houseRadiusM ?? state.settlement.houseRadiusM, houses: (saved.settlement.houses || state.settlement.houses).map(q => ({ x: q.x, y: q.y })), polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.scenes) {
     for (const ss of saved.scenes) {
       const s = state.scenes.find(x => x.id === ss.id);
@@ -1584,6 +1585,11 @@ function settlementMask(s) {
   if (!state.settlePolyMask) {
     state.settlePolyMask = new Uint8Array(n);
     for (const poly of state.settlement.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.settlePolyMask[i] = 1; }
+    const hr = (state.settlement.houseRadiusM || 0) / state.mPerPx;
+    for (const h of state.settlement.houses) {
+      const x0 = Math.max(0, Math.floor(h.x - hr)), x1 = Math.min(state.W - 1, Math.ceil(h.x + hr)), y0 = Math.max(0, Math.floor(h.y - hr)), y1 = Math.min(state.H - 1, Math.ceil(h.y + hr));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - h.x) ** 2 + (y - h.y) ** 2 <= hr * hr) state.settlePolyMask[y * state.W + x] = 1;
+    }
   }
   const out = Uint8Array.from(state.settlePolyMask);
   const r = Math.round((state.settlement.autoM || 0) / state.mPerPx);
@@ -1706,6 +1712,15 @@ function waterWithCoast(scene) {
   }
   return coastCache.mask;
 }
+function drawHouses(ctx) {
+  ctx.save();
+  for (const h of state.settlement.houses) {
+    const q = toScreen(h.x, h.y);
+    ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawSamples(ctx) {
   const s = selectedScene(); if (!s) return;
   ctx.save();
@@ -1740,6 +1755,7 @@ function render() {
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
   if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
   if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
+  if (state.display.showSettlement !== false || state.houseTool) drawHouses(vctx);
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
   updateHud(frame);
   chart.setCurrentYear(state.year);
@@ -1969,6 +1985,16 @@ function setupBufferPanel() {
     $('btnSettle').classList.toggle('active', state.settleDrawing); $('btnSettleDone').hidden = !state.settleDrawing; viewer.classList.toggle('drawing', state.settleDrawing); requestRender();
   });
   $('btnSettleDone').addEventListener('click', finishSettle);
+  bindRange('houseRadius', 'houseRadiusVal', () => state.settlement.houseRadiusM, (v) => { state.settlement.houseRadiusM = v; settlementChanged(); }, (v) => `${v} m`);
+  const houseBtns = $('houseTools').querySelectorAll('button');
+  houseBtns.forEach(b => b.addEventListener('click', () => {
+    state.houseTool = state.houseTool === b.dataset.mode ? null : b.dataset.mode;
+    houseBtns.forEach(x => x.classList.toggle('active', x.dataset.mode === state.houseTool));
+    viewer.classList.toggle('drawing', !!state.houseTool);
+    if (state.houseTool) { if (state.settleDrawing) finishSettle(); if (state.aoiDrawing) finishAoi(); state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); }
+    requestRender();
+  }));
+  $('btnHousesClear').addEventListener('click', () => { if (confirm('住居の点をすべて削除しますか？')) { state.settlement.houses = []; settlementChanged(); } });
   $('btnSettleUndo').addEventListener('click', () => { state.settlement.polygons.pop(); settlementChanged(); });
   $('btnSettleClear').addEventListener('click', () => { if (!state.settlement.polygons.length || confirm('描いた生活空間の範囲をすべて削除しますか？')) { state.settlement.polygons = []; settlementChanged(); } });
   updateSettleInfo();
@@ -1988,7 +2014,7 @@ function finishSettle() {
   settlementChanged();
 }
 function settlementChanged() { state.settlePolyMask = null; save(); updateSettleInfo(); recomputeAllBuffers(); }
-function updateSettleInfo() { $('settleInfo').textContent = `描いた範囲: ${state.settlement.polygons.length} か所`; }
+function updateSettleInfo() { $('settleInfo').textContent = `住居の点: ${state.settlement.houses.length} 棟 ／ 描いた範囲: ${state.settlement.polygons.length} か所`; }
 function finishAoi() {
   state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
@@ -2066,7 +2092,7 @@ function setupViewer() {
       return;
     }
     lastX = e.clientX; lastY = e.clientY; moved = false;
-    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode) return;
+    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode || state.houseTool) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
@@ -2100,6 +2126,13 @@ function setupViewer() {
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
     if (state.sampleTool.mode) { sampleClick(p); return; }
+    if (state.houseTool === 'add') { state.settlement.houses.push({ x: Math.round(p.x), y: Math.round(p.y) }); settlementChanged(); return; }
+    if (state.houseTool === 'delete') {
+      let best = -1, bd = 8 / state.view.scale + 4;
+      state.settlement.houses.forEach((h, i) => { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = i; } });
+      if (best >= 0) { state.settlement.houses.splice(best, 1); settlementChanged(); }
+      return;
+    }
     if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
     if (!state.aoiDrawing) return;
     state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();

@@ -130,8 +130,11 @@
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
-        <p class="note"><b>住宅地・集落</b>は生活空間として緩衝帯に含めません（田畑・人工物は分類結果から自動的に生活空間になります）。下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
+        <p class="note"><b>住宅地・集落</b>は生活空間として緩衝帯に含めません（田畑・人工物は分類結果から自動的に生活空間になります）。住居の点の周囲と、下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
         <div class="ctl"><label for="settleM">人工物の周囲 (m)</label><input type="range" id="settleM" min="0" max="150" step="5" value="0"><span class="val" id="settleMVal">なし</span></div>
+        <p class="note"><b>住居の点</b>：建物の屋根をクリックして点を置きます。点の周囲「住居の半径」が生活空間になります。</p>
+        <div class="btns" id="houseTools"><button data-mode="add">＋住居の点</button><button data-mode="delete">点を削除</button><button id="btnHousesClear">すべての点を削除</button></div>
+        <div class="ctl"><label for="houseRadius">住居の半径 (m)</label><input type="range" id="houseRadius" min="5" max="60" step="5" value="20"><span class="val" id="houseRadiusVal">20 m</span></div>
         <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
         <p class="note" id="settleInfo"></p>
         <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>

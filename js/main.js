@@ -15,7 +15,8 @@ const state = {
   W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
   scenes: [], water: null,
   aoiPoints: [], aoiMask: null, aoiDrawing: false,
-  settlement: { autoM: CFG.settlement?.autoM ?? 30, polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
+  settlement: { autoM: CFG.settlement?.autoM ?? 0, houseRadiusM: CFG.settlement?.houseRadiusM ?? 20, houses: (CFG.settlement?.houses || []).map(q => ({ x: q.x, y: q.y })), polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
+  houseTool: null,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60 },
@@ -78,7 +79,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
-  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
+  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, houseRadiusM: saved.settlement.houseRadiusM ?? state.settlement.houseRadiusM, houses: (saved.settlement.houses || state.settlement.houses).map(q => ({ x: q.x, y: q.y })), polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.scenes) {
     for (const ss of saved.scenes) {
       const s = state.scenes.find(x => x.id === ss.id);
@@ -149,6 +150,11 @@ function settlementMask(s) {
   if (!state.settlePolyMask) {
     state.settlePolyMask = new Uint8Array(n);
     for (const poly of state.settlement.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.settlePolyMask[i] = 1; }
+    const hr = (state.settlement.houseRadiusM || 0) / state.mPerPx;
+    for (const h of state.settlement.houses) {
+      const x0 = Math.max(0, Math.floor(h.x - hr)), x1 = Math.min(state.W - 1, Math.ceil(h.x + hr)), y0 = Math.max(0, Math.floor(h.y - hr)), y1 = Math.min(state.H - 1, Math.ceil(h.y + hr));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - h.x) ** 2 + (y - h.y) ** 2 <= hr * hr) state.settlePolyMask[y * state.W + x] = 1;
+    }
   }
   const out = Uint8Array.from(state.settlePolyMask);
   const r = Math.round((state.settlement.autoM || 0) / state.mPerPx);
@@ -271,6 +277,15 @@ function waterWithCoast(scene) {
   }
   return coastCache.mask;
 }
+function drawHouses(ctx) {
+  ctx.save();
+  for (const h of state.settlement.houses) {
+    const q = toScreen(h.x, h.y);
+    ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawSamples(ctx) {
   const s = selectedScene(); if (!s) return;
   ctx.save();
@@ -305,6 +320,7 @@ function render() {
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
   if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
   if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
+  if (state.display.showSettlement !== false || state.houseTool) drawHouses(vctx);
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
   updateHud(frame);
   chart.setCurrentYear(state.year);
@@ -534,6 +550,16 @@ function setupBufferPanel() {
     $('btnSettle').classList.toggle('active', state.settleDrawing); $('btnSettleDone').hidden = !state.settleDrawing; viewer.classList.toggle('drawing', state.settleDrawing); requestRender();
   });
   $('btnSettleDone').addEventListener('click', finishSettle);
+  bindRange('houseRadius', 'houseRadiusVal', () => state.settlement.houseRadiusM, (v) => { state.settlement.houseRadiusM = v; settlementChanged(); }, (v) => `${v} m`);
+  const houseBtns = $('houseTools').querySelectorAll('button');
+  houseBtns.forEach(b => b.addEventListener('click', () => {
+    state.houseTool = state.houseTool === b.dataset.mode ? null : b.dataset.mode;
+    houseBtns.forEach(x => x.classList.toggle('active', x.dataset.mode === state.houseTool));
+    viewer.classList.toggle('drawing', !!state.houseTool);
+    if (state.houseTool) { if (state.settleDrawing) finishSettle(); if (state.aoiDrawing) finishAoi(); state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); }
+    requestRender();
+  }));
+  $('btnHousesClear').addEventListener('click', () => { if (confirm('住居の点をすべて削除しますか？')) { state.settlement.houses = []; settlementChanged(); } });
   $('btnSettleUndo').addEventListener('click', () => { state.settlement.polygons.pop(); settlementChanged(); });
   $('btnSettleClear').addEventListener('click', () => { if (!state.settlement.polygons.length || confirm('描いた生活空間の範囲をすべて削除しますか？')) { state.settlement.polygons = []; settlementChanged(); } });
   updateSettleInfo();
@@ -553,7 +579,7 @@ function finishSettle() {
   settlementChanged();
 }
 function settlementChanged() { state.settlePolyMask = null; save(); updateSettleInfo(); recomputeAllBuffers(); }
-function updateSettleInfo() { $('settleInfo').textContent = `描いた範囲: ${state.settlement.polygons.length} か所`; }
+function updateSettleInfo() { $('settleInfo').textContent = `住居の点: ${state.settlement.houses.length} 棟 ／ 描いた範囲: ${state.settlement.polygons.length} か所`; }
 function finishAoi() {
   state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
@@ -631,7 +657,7 @@ function setupViewer() {
       return;
     }
     lastX = e.clientX; lastY = e.clientY; moved = false;
-    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode) return;
+    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode || state.houseTool) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
@@ -665,6 +691,13 @@ function setupViewer() {
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
     if (state.sampleTool.mode) { sampleClick(p); return; }
+    if (state.houseTool === 'add') { state.settlement.houses.push({ x: Math.round(p.x), y: Math.round(p.y) }); settlementChanged(); return; }
+    if (state.houseTool === 'delete') {
+      let best = -1, bd = 8 / state.view.scale + 4;
+      state.settlement.houses.forEach((h, i) => { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = i; } });
+      if (best >= 0) { state.settlement.houses.splice(best, 1); settlementChanged(); }
+      return;
+    }
     if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
     if (!state.aoiDrawing) return;
     state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();
