@@ -16,6 +16,8 @@ npx serve -l 8080 .        # または python3 -m http.server 8080
 # 2) ブラウザで http://localhost:8080/ を開く
 ```
 
+`node tools/build_single.mjs`（または `npm run build`）で JS・CSS・画像を埋め込んだ単一ファイル `dist/forest-buffer-simulator.html` ができます。こちらはサーバー不要で、ダブルクリックで開けます。
+
 `npm install` すると `npm start`（サーバー起動）と `npm run export`（後述のバッチ書き出し）が使えます。
 
 ### 画面の構成
