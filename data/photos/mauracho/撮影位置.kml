@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+<name>珠洲市真浦町 撮影位置</name>
+<Style id="photo"><IconStyle><color>ff2f8fff</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/camera.png</href></Icon></IconStyle></Style>
+<Style id="video"><IconStyle><color>ffd08c3c</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/movies.png</href></Icon></IconStyle></Style>
+<Style id="track"><LineStyle><color>c03c8cd0</color><width>3</width></LineStyle></Style>
+<Placemark><name>IMG_1508.JPG</name><description>撮影日時: 2026:09:23 06:56:04
+標高: 11.2 m
+順番: 1 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09399444,37.47219444,11.24</coordinates></Point></Placemark>
+<Placemark><name>IMG_1509.JPG</name><description>撮影日時: 2026:09:23 06:56:53
+標高: 15.3 m
+順番: 2 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09437500,37.47257222,15.32</coordinates></Point></Placemark>
+<Placemark><name>IMG_1510.JPG</name><description>撮影日時: 2026:09:23 06:57:17
+標高: 16.7 m
+順番: 3 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09458889,37.47247222,16.70</coordinates></Point></Placemark>
+<Placemark><name>IMG_1511.JPG</name><description>撮影日時: 2026:09:23 07:00:35
+標高: 36.9 m
+順番: 4 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09649722,37.47293889,36.91</coordinates></Point></Placemark>
+<Placemark><name>IMG_1512.JPG</name><description>撮影日時: 2026:09:23 07:00:50
+標高: 37.7 m
+順番: 5 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09649722,37.47299444,37.66</coordinates></Point></Placemark>
+<Placemark><name>IMG_1513.MOV</name><description>撮影日時: 2026:09:23 07:01:44
+標高: 37.5 m
+順番: 6 / 92</description><styleUrl>#video</styleUrl><Point><coordinates>137.09670000,37.47330000,37.47</coordinates></Point></Placemark>
+<Placemark><name>IMG_1514.JPG</name><description>撮影日時: 2026:09:23 07:02:38
+標高: 44.0 m
+順番: 7 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09690833,37.47326389,43.98</coordinates></Point></Placemark>
+<Placemark><name>IMG_1515.JPG</name><description>撮影日時: 2026:09:23 07:03:11
+標高: 43.0 m
+順番: 8 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09774722,37.47343056,43.04</coordinates></Point></Placemark>
+<Placemark><name>IMG_1516.JPG</name><description>撮影日時: 2026:09:23 07:03:18
+標高: 48.9 m
+順番: 9 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09782500,37.47342222,48.94</coordinates></Point></Placemark>
+<Placemark><name>IMG_1517.JPG</name><description>撮影日時: 2026:09:23 07:03:27
+標高: 48.4 m
+順番: 10 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09783889,37.47343889,48.39</coordinates></Point></Placemark>
+<Placemark><name>IMG_1518.JPG</name><description>撮影日時: 2026:09:23 07:04:37
+標高: 57.1 m
+順番: 11 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09821944,37.47306389,57.12</coordinates></Point></Placemark>
+<Placemark><name>IMG_1519.JPG</name><description>撮影日時: 2026:09:23 07:06:44
+標高: 74.0 m
+順番: 12 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09951667,37.47354167,73.99</coordinates></Point></Placemark>
+<Placemark><name>IMG_1520.JPG</name><description>撮影日時: 2026:09:23 07:06:52
+標高: 75.5 m
+順番: 13 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09953333,37.47344167,75.53</coordinates></Point></Placemark>
+<Placemark><name>IMG_1521.JPG</name><description>撮影日時: 2026:09:23 07:07:20
+標高: 74.3 m
+順番: 14 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09945556,37.47324444,74.29</coordinates></Point></Placemark>
+<Placemark><name>IMG_1522.JPG</name><description>撮影日時: 2026:09:23 07:07:25
+標高: 74.8 m
+順番: 15 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09944167,37.47323611,74.79</coordinates></Point></Placemark>
+<Placemark><name>IMG_1523.JPG</name><description>撮影日時: 2026:09:23 07:07:39
+標高: 75.5 m
+順番: 16 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09950278,37.47318889,75.47</coordinates></Point></Placemark>
+<Placemark><name>IMG_1524.JPG</name><description>撮影日時: 2026:09:23 07:07:56
+標高: 76.2 m
+順番: 17 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09962500,37.47321389,76.24</coordinates></Point></Placemark>
+<Placemark><name>IMG_1525.JPG</name><description>撮影日時: 2026:09:23 07:08:06
+標高: 76.1 m
+順番: 18 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09962500,37.47321389,76.14</coordinates></Point></Placemark>
+<Placemark><name>IMG_1526.JPG</name><description>撮影日時: 2026:09:23 07:08:15
+標高: 75.3 m
+順番: 19 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09959444,37.47319722,75.31</coordinates></Point></Placemark>
+<Placemark><name>IMG_1527.JPG</name><description>撮影日時: 2026:09:23 07:08:40
+標高: 76.7 m
+順番: 20 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09976111,37.47329722,76.66</coordinates></Point></Placemark>
+<Placemark><name>IMG_1528.JPG</name><description>撮影日時: 2026:09:23 07:08:50
+標高: 77.8 m
+順番: 21 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09983889,37.47335000,77.84</coordinates></Point></Placemark>
+<Placemark><name>IMG_1529.JPG</name><description>撮影日時: 2026:09:23 07:09:25
+標高: 79.4 m
+順番: 22 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10014444,37.47343611,79.40</coordinates></Point></Placemark>
+<Placemark><name>IMG_1530.JPG</name><description>撮影日時: 2026:09:23 07:09:36
+標高: 79.4 m
+順番: 23 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10014444,37.47337778,79.42</coordinates></Point></Placemark>
+<Placemark><name>IMG_1531.JPG</name><description>撮影日時: 2026:09:23 07:09:54
+標高: 79.2 m
+順番: 24 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10015833,37.47327778,79.15</coordinates></Point></Placemark>
+<Placemark><name>IMG_1532.JPG</name><description>撮影日時: 2026:09:23 07:10:21
+標高: 81.5 m
+順番: 25 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10018889,37.47321667,81.55</coordinates></Point></Placemark>
+<Placemark><name>IMG_1533.MOV</name><description>撮影日時: 2026:09:23 07:10:27
+標高: 81.2 m
+順番: 26 / 92</description><styleUrl>#video</styleUrl><Point><coordinates>137.10020000,37.47320000,81.24</coordinates></Point></Placemark>
+<Placemark><name>IMG_1534.JPG</name><description>撮影日時: 2026:09:23 07:12:22
+標高: 89.2 m
+順番: 27 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10066111,37.47286667,89.22</coordinates></Point></Placemark>
+<Placemark><name>IMG_1535.JPG</name><description>撮影日時: 2026:09:23 07:12:39
+標高: 92.2 m
+順番: 28 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10083056,37.47280833,92.16</coordinates></Point></Placemark>
+<Placemark><name>IMG_1536.JPG</name><description>撮影日時: 2026:09:23 07:13:07
+標高: 96.2 m
+順番: 29 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10115000,37.47267222,96.15</coordinates></Point></Placemark>
+<Placemark><name>IMG_1537.JPG</name><description>撮影日時: 2026:09:23 07:13:10
+標高: 96.3 m
+順番: 30 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10115000,37.47267222,96.27</coordinates></Point></Placemark>
+<Placemark><name>IMG_1538.JPG</name><description>撮影日時: 2026:09:23 07:13:13
+標高: 96.6 m
+順番: 31 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10115000,37.47267222,96.61</coordinates></Point></Placemark>
+<Placemark><name>IMG_1539.JPG</name><description>撮影日時: 2026:09:23 07:13:17
+標高: 96.9 m
+順番: 32 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10115000,37.47267500,96.94</coordinates></Point></Placemark>
+<Placemark><name>IMG_1540.JPG</name><description>撮影日時: 2026:09:23 07:13:22
+標高: 96.8 m
+順番: 33 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10115000,37.47267222,96.78</coordinates></Point></Placemark>
+<Placemark><name>IMG_1541.JPG</name><description>撮影日時: 2026:09:23 07:14:05
+標高: 97.8 m
+順番: 34 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10141111,37.47256944,97.76</coordinates></Point></Placemark>
+<Placemark><name>IMG_1542.JPG</name><description>撮影日時: 2026:09:23 07:14:21
+標高: 100.8 m
+順番: 35 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10151667,37.47250556,100.80</coordinates></Point></Placemark>
+<Placemark><name>IMG_1543.JPG</name><description>撮影日時: 2026:09:23 07:15:00
+標高: 107.6 m
+順番: 36 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10188333,37.47232500,107.62</coordinates></Point></Placemark>
+<Placemark><name>IMG_1544.JPG</name><description>撮影日時: 2026:09:23 07:15:06
+標高: 108.3 m
+順番: 37 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10186667,37.47233056,108.29</coordinates></Point></Placemark>
+<Placemark><name>IMG_1545.MOV</name><description>撮影日時: 2026:09:23 07:16:01
+標高: 104.6 m
+順番: 38 / 92</description><styleUrl>#video</styleUrl><Point><coordinates>137.10120000,37.47270000,104.62</coordinates></Point></Placemark>
+<Placemark><name>IMG_1546.JPG</name><description>撮影日時: 2026:09:23 07:16:56
+標高: 89.6 m
+順番: 39 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10052500,37.47282222,89.57</coordinates></Point></Placemark>
+<Placemark><name>IMG_1547.JPG</name><description>撮影日時: 2026:09:23 07:18:21
+標高: 80.7 m
+順番: 40 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.10015833,37.47324444,80.68</coordinates></Point></Placemark>
+<Placemark><name>IMG_1548.JPG</name><description>撮影日時: 2026:09:23 07:18:53
+標高: 78.6 m
+順番: 41 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09996111,37.47345556,78.58</coordinates></Point></Placemark>
+<Placemark><name>IMG_1549.JPG</name><description>撮影日時: 2026:09:23 07:18:56
+標高: 78.8 m
+順番: 42 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09996111,37.47344722,78.82</coordinates></Point></Placemark>
+<Placemark><name>IMG_1550.JPG</name><description>撮影日時: 2026:09:23 07:19:20
+標高: 76.3 m
+順番: 43 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09976111,37.47330278,76.27</coordinates></Point></Placemark>
+<Placemark><name>IMG_1551.JPG</name><description>撮影日時: 2026:09:23 07:19:25
+標高: 76.8 m
+順番: 44 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09976111,37.47330278,76.77</coordinates></Point></Placemark>
+<Placemark><name>IMG_1552.JPG</name><description>撮影日時: 2026:09:23 07:19:51
+標高: 74.4 m
+順番: 45 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09948611,37.47319444,74.37</coordinates></Point></Placemark>
+<Placemark><name>IMG_1553.JPG</name><description>撮影日時: 2026:09:23 07:21:00
+標高: 75.9 m
+順番: 46 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09963889,37.47388056,75.93</coordinates></Point></Placemark>
+<Placemark><name>IMG_1554.JPG</name><description>撮影日時: 2026:09:23 07:22:32
+標高: 70.3 m
+順番: 47 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09873889,37.47343056,70.31</coordinates></Point></Placemark>
+<Placemark><name>IMG_1555.JPG</name><description>撮影日時: 2026:09:23 07:22:39
+標高: 69.5 m
+順番: 48 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09873889,37.47342778,69.50</coordinates></Point></Placemark>
+<Placemark><name>IMG_1556.JPG</name><description>撮影日時: 2026:09:23 07:22:44
+標高: 69.3 m
+順番: 49 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09872500,37.47343056,69.29</coordinates></Point></Placemark>
+<Placemark><name>IMG_1557.JPG</name><description>撮影日時: 2026:09:23 07:22:53
+標高: 68.8 m
+順番: 50 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09870833,37.47341944,68.80</coordinates></Point></Placemark>
+<Placemark><name>IMG_1558.JPG</name><description>撮影日時: 2026:09:23 07:26:25
+標高: 36.0 m
+順番: 51 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09648056,37.47285000,35.95</coordinates></Point></Placemark>
+<Placemark><name>IMG_1559.JPG</name><description>撮影日時: 2026:09:23 07:26:29
+標高: 35.9 m
+順番: 52 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09648056,37.47285000,35.89</coordinates></Point></Placemark>
+<Placemark><name>IMG_1560.JPG</name><description>撮影日時: 2026:09:23 07:26:41
+標高: 35.2 m
+順番: 53 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09646667,37.47282222,35.16</coordinates></Point></Placemark>
+<Placemark><name>IMG_1561.MOV</name><description>撮影日時: 2026:09:23 07:26:59
+標高: 35.5 m
+順番: 54 / 92</description><styleUrl>#video</styleUrl><Point><coordinates>137.09650000,37.47280000,35.46</coordinates></Point></Placemark>
+<Placemark><name>IMG_1562.JPG</name><description>撮影日時: 2026:09:23 07:27:57
+標高: 34.8 m
+順番: 55 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09599167,37.47246389,34.80</coordinates></Point></Placemark>
+<Placemark><name>IMG_1563.JPG</name><description>撮影日時: 2026:09:23 07:28:01
+標高: 34.5 m
+順番: 56 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09599167,37.47246111,34.52</coordinates></Point></Placemark>
+<Placemark><name>IMG_1564.JPG</name><description>撮影日時: 2026:09:23 07:28:58
+標高: 32.9 m
+順番: 57 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09591667,37.47248611,32.94</coordinates></Point></Placemark>
+<Placemark><name>IMG_1565.JPG</name><description>撮影日時: 2026:09:23 07:29:02
+標高: 33.8 m
+順番: 58 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09587222,37.47243611,33.82</coordinates></Point></Placemark>
+<Placemark><name>IMG_1566.JPG</name><description>撮影日時: 2026:09:23 07:29:29
+標高: 32.3 m
+順番: 59 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09571944,37.47229444,32.30</coordinates></Point></Placemark>
+<Placemark><name>IMG_1567.JPG</name><description>撮影日時: 2026:09:23 07:29:37
+標高: 33.1 m
+順番: 60 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09567222,37.47227222,33.10</coordinates></Point></Placemark>
+<Placemark><name>IMG_1568.JPG</name><description>撮影日時: 2026:09:23 07:29:52
+標高: 32.9 m
+順番: 61 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09565833,37.47226389,32.89</coordinates></Point></Placemark>
+<Placemark><name>IMG_1569.JPG</name><description>撮影日時: 2026:09:23 07:30:05
+標高: 33.8 m
+順番: 62 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09559722,37.47223333,33.81</coordinates></Point></Placemark>
+<Placemark><name>IMG_1570.JPG</name><description>撮影日時: 2026:09:23 07:35:18
+標高: 54.7 m
+順番: 63 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09410000,37.47056389,54.67</coordinates></Point></Placemark>
+<Placemark><name>IMG_1571.JPG</name><description>撮影日時: 2026:09:23 07:37:09
+標高: 71.1 m
+順番: 64 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09512222,37.47084722,71.10</coordinates></Point></Placemark>
+<Placemark><name>IMG_1572.JPG</name><description>撮影日時: 2026:09:23 07:37:12
+標高: 70.4 m
+順番: 65 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09512222,37.47084444,70.44</coordinates></Point></Placemark>
+<Placemark><name>IMG_1573.JPG</name><description>撮影日時: 2026:09:23 07:37:16
+標高: 70.2 m
+順番: 66 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09512222,37.47084444,70.18</coordinates></Point></Placemark>
+<Placemark><name>IMG_1574.JPG</name><description>撮影日時: 2026:09:23 07:40:05
+標高: 92.6 m
+順番: 67 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09606944,37.46987222,92.64</coordinates></Point></Placemark>
+<Placemark><name>IMG_1575.JPG</name><description>撮影日時: 2026:09:23 07:40:08
+標高: 92.8 m
+順番: 68 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09606944,37.46987222,92.75</coordinates></Point></Placemark>
+<Placemark><name>IMG_1576.JPG</name><description>撮影日時: 2026:09:23 07:41:02
+標高: 85.6 m
+順番: 69 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09548889,37.46986111,85.63</coordinates></Point></Placemark>
+<Placemark><name>IMG_1577.JPG</name><description>撮影日時: 2026:09:23 07:41:07
+標高: 89.7 m
+順番: 70 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09545833,37.46988333,89.67</coordinates></Point></Placemark>
+<Placemark><name>IMG_1578.JPG</name><description>撮影日時: 2026:09:23 07:41:35
+標高: 88.8 m
+順番: 71 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09535278,37.46997500,88.84</coordinates></Point></Placemark>
+<Placemark><name>IMG_1579.JPG</name><description>撮影日時: 2026:09:23 07:41:53
+標高: 90.4 m
+順番: 72 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09526111,37.47018056,90.40</coordinates></Point></Placemark>
+<Placemark><name>IMG_1580.JPG</name><description>撮影日時: 2026:09:23 07:42:02
+標高: 88.6 m
+順番: 73 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09532222,37.47021111,88.62</coordinates></Point></Placemark>
+<Placemark><name>IMG_1581.JPG</name><description>撮影日時: 2026:09:23 07:42:27
+標高: 91.5 m
+順番: 74 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09535278,37.47001389,91.52</coordinates></Point></Placemark>
+<Placemark><name>IMG_1582.JPG</name><description>撮影日時: 2026:09:23 07:43:52
+標高: 85.4 m
+順番: 75 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09485000,37.46943333,85.42</coordinates></Point></Placemark>
+<Placemark><name>IMG_1583.JPG</name><description>撮影日時: 2026:09:23 07:44:00
+標高: 85.1 m
+順番: 76 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09483333,37.46937500,85.13</coordinates></Point></Placemark>
+<Placemark><name>IMG_1584.JPG</name><description>撮影日時: 2026:09:23 07:44:45
+標高: 80.4 m
+順番: 77 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09463611,37.46953611,80.42</coordinates></Point></Placemark>
+<Placemark><name>IMG_1585.JPG</name><description>撮影日時: 2026:09:23 07:44:55
+標高: 83.1 m
+順番: 78 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09440556,37.46950833,83.07</coordinates></Point></Placemark>
+<Placemark><name>IMG_1586.JPG</name><description>撮影日時: 2026:09:23 07:49:08
+標高: 105.5 m
+順番: 79 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09748889,37.47015000,105.47</coordinates></Point></Placemark>
+<Placemark><name>IMG_1587.JPG</name><description>撮影日時: 2026:09:23 07:49:36
+標高: 110.1 m
+順番: 80 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09791667,37.47015833,110.12</coordinates></Point></Placemark>
+<Placemark><name>IMG_1588.JPG</name><description>撮影日時: 2026:09:23 07:49:44
+標高: 113.1 m
+順番: 81 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09802222,37.47016111,113.14</coordinates></Point></Placemark>
+<Placemark><name>IMG_1589.MOV</name><description>撮影日時: 2026:09:23 07:49:54
+標高: 114.5 m
+順番: 82 / 92</description><styleUrl>#video</styleUrl><Point><coordinates>137.09800000,37.47020000,114.52</coordinates></Point></Placemark>
+<Placemark><name>IMG_1590.MOV</name><description>撮影日時: 2026:09:23 07:50:35
+標高: 114.2 m
+順番: 83 / 92</description><styleUrl>#video</styleUrl><Point><coordinates>137.09810000,37.47010000,114.17</coordinates></Point></Placemark>
+<Placemark><name>IMG_1591.JPG</name><description>撮影日時: 2026:09:23 07:51:49
+標高: 111.2 m
+順番: 84 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09782500,37.47017222,111.21</coordinates></Point></Placemark>
+<Placemark><name>IMG_1593.JPG</name><description>撮影日時: 2026:09:23 07:51:55
+標高: 111.5 m
+順番: 85 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09782500,37.47016944,111.54</coordinates></Point></Placemark>
+<Placemark><name>IMG_1594.JPG</name><description>撮影日時: 2026:09:23 07:51:57
+標高: 111.7 m
+順番: 86 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09783889,37.47017222,111.66</coordinates></Point></Placemark>
+<Placemark><name>IMG_1596.JPG</name><description>撮影日時: 2026:09:23 07:54:35
+標高: 96.0 m
+順番: 87 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09620556,37.46988889,96.01</coordinates></Point></Placemark>
+<Placemark><name>IMG_1597.JPG</name><description>撮影日時: 2026:09:23 07:59:38
+標高: 8.0 m
+順番: 88 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09301667,37.47283611,7.98</coordinates></Point></Placemark>
+<Placemark><name>IMG_1598.JPG</name><description>撮影日時: 2026:09:23 08:08:39
+標高: 4.9 m
+順番: 89 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09217778,37.47215556,4.90</coordinates></Point></Placemark>
+<Placemark><name>IMG_1599.JPG</name><description>撮影日時: 2026:09:23 08:08:41
+標高: 10.2 m
+順番: 90 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09388611,37.47202222,10.16</coordinates></Point></Placemark>
+<Placemark><name>IMG_1600.JPG</name><description>撮影日時: 2026:09:23 08:11:24
+標高: 14.2 m
+順番: 91 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09245278,37.47108056,14.25</coordinates></Point></Placemark>
+<Placemark><name>IMG_1601.JPG</name><description>撮影日時: 2026:09:23 08:50:54
+標高: 8.0 m
+順番: 92 / 92</description><styleUrl>#photo</styleUrl><Point><coordinates>137.09297222,37.47280556,7.98</coordinates></Point></Placemark>
+<Placemark><name>撮影経路</name><styleUrl>#track</styleUrl><LineString><tessellate>1</tessellate><coordinates>137.09399444,37.47219444,0 137.09437500,37.47257222,0 137.09458889,37.47247222,0 137.09649722,37.47293889,0 137.09649722,37.47299444,0 137.09670000,37.47330000,0 137.09690833,37.47326389,0 137.09774722,37.47343056,0 137.09782500,37.47342222,0 137.09783889,37.47343889,0 137.09821944,37.47306389,0 137.09951667,37.47354167,0 137.09953333,37.47344167,0 137.09945556,37.47324444,0 137.09944167,37.47323611,0 137.09950278,37.47318889,0 137.09962500,37.47321389,0 137.09962500,37.47321389,0 137.09959444,37.47319722,0 137.09976111,37.47329722,0 137.09983889,37.47335000,0 137.10014444,37.47343611,0 137.10014444,37.47337778,0 137.10015833,37.47327778,0 137.10018889,37.47321667,0 137.10020000,37.47320000,0 137.10066111,37.47286667,0 137.10083056,37.47280833,0 137.10115000,37.47267222,0 137.10115000,37.47267222,0 137.10115000,37.47267222,0 137.10115000,37.47267500,0 137.10115000,37.47267222,0 137.10141111,37.47256944,0 137.10151667,37.47250556,0 137.10188333,37.47232500,0 137.10186667,37.47233056,0 137.10120000,37.47270000,0 137.10052500,37.47282222,0 137.10015833,37.47324444,0 137.09996111,37.47345556,0 137.09996111,37.47344722,0 137.09976111,37.47330278,0 137.09976111,37.47330278,0 137.09948611,37.47319444,0 137.09963889,37.47388056,0 137.09873889,37.47343056,0 137.09873889,37.47342778,0 137.09872500,37.47343056,0 137.09870833,37.47341944,0 137.09648056,37.47285000,0 137.09648056,37.47285000,0 137.09646667,37.47282222,0 137.09650000,37.47280000,0 137.09599167,37.47246389,0 137.09599167,37.47246111,0 137.09591667,37.47248611,0 137.09587222,37.47243611,0 137.09571944,37.47229444,0 137.09567222,37.47227222,0 137.09565833,37.47226389,0 137.09559722,37.47223333,0 137.09410000,37.47056389,0 137.09512222,37.47084722,0 137.09512222,37.47084444,0 137.09512222,37.47084444,0 137.09606944,37.46987222,0 137.09606944,37.46987222,0 137.09548889,37.46986111,0 137.09545833,37.46988333,0 137.09535278,37.46997500,0 137.09526111,37.47018056,0 137.09532222,37.47021111,0 137.09535278,37.47001389,0 137.09485000,37.46943333,0 137.09483333,37.46937500,0 137.09463611,37.46953611,0 137.09440556,37.46950833,0 137.09748889,37.47015000,0 137.09791667,37.47015833,0 137.09802222,37.47016111,0 137.09800000,37.47020000,0 137.09810000,37.47010000,0 137.09782500,37.47017222,0 137.09782500,37.47016944,0 137.09783889,37.47017222,0 137.09620556,37.46988889,0 137.09301667,37.47283611,0 137.09217778,37.47215556,0 137.09388611,37.47202222,0 137.09245278,37.47108056,0 137.09297222,37.47280556,0</coordinates></LineString></Placemark>
+</Document></kml>
