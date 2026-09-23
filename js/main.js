@@ -790,6 +790,8 @@ function stopRecording() { togglePlay(false); if (state.recording) setTimeout(()
 // ---------- 初期化 ----------
 async function init() {
   const status = $('status');
+  $('loading').firstElementChild.firstChild.textContent = 'スクリプトを開始しました。画像を読み込んでいます…';
+  const watchdog = setTimeout(() => { const h = $('loadingHint'); if (h) h.textContent = '処理に時間がかかっています。画像が大きい、または端末の処理能力が低い可能性があります。しばらくお待ちください。'; }, 20000);
   try {
     state.scenes = (CFG.scenes || []).map(s => ({ ...s, params: { ...(s.params || {}) } }));
     applySaved(loadSaved());
@@ -800,7 +802,7 @@ async function init() {
     state.mPerPx = sc.barMeters / sc.barPx; state.pxAreaHa = state.mPerPx * state.mPerPx / 10000;
     status.textContent = '分類中…';
     await new Promise(r => setTimeout(r, 0));
-    const loading = $('loading');
+    const loading = { set textContent(v) { $('loading').firstElementChild.firstChild.textContent = v; } };
     for (let i = 0; i < state.scenes.length; i++) { loading.textContent = `画像を準備しています… (${i + 1}/${state.scenes.length})`; await new Promise(r => setTimeout(r, 0)); await prepareScene(state.scenes[i], imgs[i]); }
     loading.textContent = '水域を判定しています…'; await new Promise(r => setTimeout(r, 0));
     computeWater();
@@ -819,8 +821,10 @@ async function init() {
     rebuildTimeline(); renderSceneTable(); refreshParamPanel();
     fitView(); render();
     status.textContent = `${state.W}×${state.H} px · ${state.mPerPx.toFixed(2)} m/px · ${state.scenes.length} 時期`;
+    clearTimeout(watchdog);
     $('loading').hidden = true;
   } catch (err) {
+    clearTimeout(watchdog);
     console.error(err);
     $('loading').innerHTML = `<div style="max-width:560px;text-align:center;line-height:1.6">読み込みに失敗しました。<br>${esc(err.message)}<br><small>このツールは http サーバー経由で開く必要があります（例: <code>npx serve</code> または <code>python3 -m http.server</code>）。</small></div>`;
     status.textContent = 'エラー';
