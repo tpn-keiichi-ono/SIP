@@ -318,13 +318,14 @@ export function classifyScene(feat, W, H, params, water, samples) {
  * （疎林・草地）が「機能している緩衝帯」。帯の中で森林になった部分は緩衝帯が失われた場所。
  *  - human      … 生活空間マスク（住宅地多角形など。田畑・人工物は cls から加える）
  *  - bandPx     … 生活空間からの帯の幅（画素）。0 なら帯で限定せず、疎林・草地すべてを緩衝帯とする
- *  - forestNearPx … 0 より大きい場合、この距離以内に密な森林がある画素だけを緩衝帯とする（海側など森に面していない縁を除く）
+ *  - forestNearPx … 0 より大きい場合、この距離以内に「まとまった森林」がある画素だけを緩衝帯とする（海側など森に面していない縁を除く）
+ *  - minForestRegionPx … 「まとまった森林」とみなす森林の塊の最小面積（画素）。田畑の間の小さな木立は森林扱いしない
  *  - coastAwayPx  … 0 より大きい場合、水域からこの距離以内の画素は緩衝帯にしない
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6 } = {}) {
+export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6, minForestRegionPx = 2600 } = {}) {
   const n = W * H;
   // 田畑・人工物は、森の中の小さな断片（誤判定や小屋など）を除き、まとまった区画だけを生活空間とみなす
   const fieldBuilt = new Uint8Array(n);
@@ -343,7 +344,8 @@ export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx =
     for (let i = 0; i < n; i++) buf[i] = cls.sparse[i] && !humanAll[i] ? 1 : 0;
   }
   if (forestNearPx > 0) {
-    const dF = distanceTransform(cls.forest, W, H);
+    const mainForest = minForestRegionPx > 1 ? removeSmallRegions(cls.forest, W, H, minForestRegionPx, 8) : cls.forest;
+    const dF = distanceTransform(mainForest, W, H);
     for (let i = 0; i < n; i++) if (buf[i] && dF[i] > forestNearPx) buf[i] = 0;
   }
   if (coastAwayPx > 0 && (water || cls.coast)) {

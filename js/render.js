@@ -17,6 +17,9 @@ export const DEFAULT_STYLE = {
   settlementColor: [250, 250, 250],
   settlementOpacity: 0.35,
   showSettlement: true,
+  sparseColor: [255, 150, 40],
+  sparseOpacity: 0.35,
+  showSparse: false,
   fieldColor: [255, 220, 90],
   fieldOpacity: 0.35,
   showField: false,
@@ -44,11 +47,13 @@ export function composeOverlay(imgData, layers, style) {
   const cFor = pack(s.forestColor[0], s.forestColor[1], s.forestColor[2], Math.round(255 * s.forestOpacity));
   const cBuilt = pack(s.builtColor[0], s.builtColor[1], s.builtColor[2], Math.round(255 * s.builtOpacity));
   const cWater = pack(s.waterColor[0], s.waterColor[1], s.waterColor[2], Math.round(255 * s.waterOpacity));
+  const cSparse = pack(s.sparseColor[0], s.sparseColor[1], s.sparseColor[2], Math.round(255 * s.sparseOpacity));
   const cField = pack(s.fieldColor[0], s.fieldColor[1], s.fieldColor[2], Math.round(255 * s.fieldOpacity));
   const cBandLost = pack(s.bandLostColor[0], s.bandLostColor[1], s.bandLostColor[2], Math.round(255 * s.bandLostOpacity));
   const cSet = pack(s.settlementColor[0], s.settlementColor[1], s.settlementColor[2], Math.round(255 * s.settlementOpacity));
   const cDim = pack(20, 20, 20, 110);
-  const { buffer, lost, forest, built, water, aoi, settlement, field, band } = layers;
+  const { buffer, lost, forest, built, water, aoi, settlement, field, band, sparse } = layers;
+  const showSparse = s.showSparse && sparse;
   const showSet = s.showSettlement && settlement;
   const showField = s.showField && field;
   const showBandLost = s.showBandLost && band && forest;
@@ -61,6 +66,7 @@ export function composeOverlay(imgData, layers, style) {
     else if (showBandLost && band[i] && forest[i]) v = cBandLost;
     else if (showSet && settlement[i]) v = cSet;
     else if (showField && field[i]) v = cField;
+    else if (showSparse && sparse[i]) v = cSparse;
     else if (showWater && water[i]) v = cWater;
     else if (showBuilt && built[i]) v = cBuilt;
     else if (showForest && forest[i]) v = cFor;

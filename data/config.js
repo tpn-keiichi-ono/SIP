@@ -37,7 +37,8 @@ window.SIP_CONFIG = {
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 生活空間（住宅地・田畑・人工物）の周囲 edgeBandM (m) の帯のうち疎林・草地の部分。解析範囲 = 画像全体（aoi: []）
   // forestNearM: この距離以内に密な森林がある部分だけ（森に面した側だけ）、coastAwayM: 海岸からこの距離以内は緩衝帯にしない
-  buffer: { edgeBandM: 50, forestNearM: 40, coastAwayM: 60, aoi: [] },
+  // minForestHa: 緩衝帯が接すべき「まとまった森林」の最小面積 (ha)。田畑の間の木立は森林扱いしない
+  buffer: { edgeBandM: 50, forestNearM: 40, coastAwayM: 60, minForestHa: 1, aoi: [] },
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {

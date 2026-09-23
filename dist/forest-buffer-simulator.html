@@ -33,6 +33,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
 #legend .l-lost::before { background: rgba(120,10,40,.75); }
+#legend .l-sparse::before { background: rgba(255,150,40,.8); }
 #legend .l-field::before { background: rgba(255,220,90,.8); }
 #legend .l-bandlost::before { background: rgba(60,90,60,.9); }
 #legend .l-set::before { background: rgba(250,250,250,.8); }
@@ -134,7 +135,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
       </div>
       <div id="loading"><div style="max-width:560px;text-align:center;line-height:1.6">画像を読み込んで分類しています…<br><small id="loadingHint">この表示のまま変わらない場合、スクリプトの実行が許可されていない環境（ファイルプレビューなど）です。ブラウザで直接開くか、サーバー経由で開いてください。</small></div></div>
     </div>
@@ -163,6 +164,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
           <label><input type="checkbox" id="showSettlement" checked> 住宅地</label>
+          <label><input type="checkbox" id="showSparse"> 疎林・草地（全体）</label>
           <label><input type="checkbox" id="showField"> 田畑</label>
           <label><input type="checkbox" id="showBandLost"> 帯のうち森林化した部分</label>
           <label><input type="checkbox" id="showForest"> 森林（緑）</label>
@@ -236,8 +238,9 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="50"><span class="val" id="edgeBandVal">50 m</span></div>
         <p class="note">0 にすると帯で限定せず、疎林・草地すべてを緩衝帯とします。</p>
         <div class="ctl"><label for="forestNear">森林からの距離 (m) 以内</label><input type="range" id="forestNear" min="0" max="150" step="10" value="40"><span class="val" id="forestNearVal">40 m</span></div>
+        <div class="ctl"><label for="minForest">森林とみなす塊の最小面積</label><input type="range" id="minForest" min="0" max="5" step="0.25" value="1"><span class="val" id="minForestVal">1 ha 以上</span></div>
         <div class="ctl"><label for="coastAway">海岸から (m) 以上離す</label><input type="range" id="coastAway" min="0" max="200" step="10" value="60"><span class="val" id="coastAwayVal">60 m</span></div>
-        <p class="note">緩衝帯は森林に面した側だけに限ります。「森林からの距離」以内に密な森林がない縁（海側など）と、海岸に近い部分は緩衝帯にしません。</p>
+        <p class="note">緩衝帯は森林に面した側だけに限ります。「森林からの距離」以内にまとまった森林（「森林とみなす塊の最小面積」以上）がない縁は緩衝帯にしません。田畑の間の小さな木立や屋敷林は森林とみなしません。海岸に近い部分も除きます。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
@@ -335,7 +338,8 @@ window.SIP_CONFIG = {
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 生活空間（住宅地・田畑・人工物）の周囲 edgeBandM (m) の帯のうち疎林・草地の部分。解析範囲 = 画像全体（aoi: []）
   // forestNearM: この距離以内に密な森林がある部分だけ（森に面した側だけ）、coastAwayM: 海岸からこの距離以内は緩衝帯にしない
-  buffer: { edgeBandM: 50, forestNearM: 40, coastAwayM: 60, aoi: [] },
+  // minForestHa: 緩衝帯が接すべき「まとまった森林」の最小面積 (ha)。田畑の間の木立は森林扱いしない
+  buffer: { edgeBandM: 50, forestNearM: 40, coastAwayM: 60, minForestHa: 1, aoi: [] },
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {
@@ -966,13 +970,14 @@ function classifyScene(feat, W, H, params, water, samples) {
  * （疎林・草地）が「機能している緩衝帯」。帯の中で森林になった部分は緩衝帯が失われた場所。
  *  - human      … 生活空間マスク（住宅地多角形など。田畑・人工物は cls から加える）
  *  - bandPx     … 生活空間からの帯の幅（画素）。0 なら帯で限定せず、疎林・草地すべてを緩衝帯とする
- *  - forestNearPx … 0 より大きい場合、この距離以内に密な森林がある画素だけを緩衝帯とする（海側など森に面していない縁を除く）
+ *  - forestNearPx … 0 より大きい場合、この距離以内に「まとまった森林」がある画素だけを緩衝帯とする（海側など森に面していない縁を除く）
+ *  - minForestRegionPx … 「まとまった森林」とみなす森林の塊の最小面積（画素）。田畑の間の小さな木立は森林扱いしない
  *  - coastAwayPx  … 0 より大きい場合、水域からこの距離以内の画素は緩衝帯にしない
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6 } = {}) {
+function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6, minForestRegionPx = 2600 } = {}) {
   const n = W * H;
   // 田畑・人工物は、森の中の小さな断片（誤判定や小屋など）を除き、まとまった区画だけを生活空間とみなす
   const fieldBuilt = new Uint8Array(n);
@@ -991,7 +996,8 @@ function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, hum
     for (let i = 0; i < n; i++) buf[i] = cls.sparse[i] && !humanAll[i] ? 1 : 0;
   }
   if (forestNearPx > 0) {
-    const dF = distanceTransform(cls.forest, W, H);
+    const mainForest = minForestRegionPx > 1 ? removeSmallRegions(cls.forest, W, H, minForestRegionPx, 8) : cls.forest;
+    const dF = distanceTransform(mainForest, W, H);
     for (let i = 0; i < n; i++) if (buf[i] && dF[i] > forestNearPx) buf[i] = 0;
   }
   if (coastAwayPx > 0 && (water || cls.coast)) {
@@ -1205,6 +1211,9 @@ const DEFAULT_STYLE = {
   settlementColor: [250, 250, 250],
   settlementOpacity: 0.35,
   showSettlement: true,
+  sparseColor: [255, 150, 40],
+  sparseOpacity: 0.35,
+  showSparse: false,
   fieldColor: [255, 220, 90],
   fieldOpacity: 0.35,
   showField: false,
@@ -1232,11 +1241,13 @@ function composeOverlay(imgData, layers, style) {
   const cFor = pack(s.forestColor[0], s.forestColor[1], s.forestColor[2], Math.round(255 * s.forestOpacity));
   const cBuilt = pack(s.builtColor[0], s.builtColor[1], s.builtColor[2], Math.round(255 * s.builtOpacity));
   const cWater = pack(s.waterColor[0], s.waterColor[1], s.waterColor[2], Math.round(255 * s.waterOpacity));
+  const cSparse = pack(s.sparseColor[0], s.sparseColor[1], s.sparseColor[2], Math.round(255 * s.sparseOpacity));
   const cField = pack(s.fieldColor[0], s.fieldColor[1], s.fieldColor[2], Math.round(255 * s.fieldOpacity));
   const cBandLost = pack(s.bandLostColor[0], s.bandLostColor[1], s.bandLostColor[2], Math.round(255 * s.bandLostOpacity));
   const cSet = pack(s.settlementColor[0], s.settlementColor[1], s.settlementColor[2], Math.round(255 * s.settlementOpacity));
   const cDim = pack(20, 20, 20, 110);
-  const { buffer, lost, forest, built, water, aoi, settlement, field, band } = layers;
+  const { buffer, lost, forest, built, water, aoi, settlement, field, band, sparse } = layers;
+  const showSparse = s.showSparse && sparse;
   const showSet = s.showSettlement && settlement;
   const showField = s.showField && field;
   const showBandLost = s.showBandLost && band && forest;
@@ -1249,6 +1260,7 @@ function composeOverlay(imgData, layers, style) {
     else if (showBandLost && band[i] && forest[i]) v = cBandLost;
     else if (showSet && settlement[i]) v = cSet;
     else if (showField && field[i]) v = cField;
+    else if (showSparse && sparse[i]) v = cSparse;
     else if (showWater && water[i]) v = cWater;
     else if (showBuilt && built[i]) v = cBuilt;
     else if (showForest && forest[i]) v = cFor;
@@ -1462,7 +1474,7 @@ const state = {
   houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
-  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60 },
+  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1 },
   sim: { ...CFG.simulation },
   samples: normalizeSamples(CFG.samples),
   sampleTool: { mode: null, radius: 10, shared: false, show: false },
@@ -1514,7 +1526,7 @@ function serialize() {
       id: s.id, file: s.file, year: s.year, label: s.label, estimated: !!s.estimated, params: s.params,
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
-    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, aoi: state.aoiPoints }, sim: state.sim,
+    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, aoi: state.aoiPoints }, sim: state.sim,
     samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
   };
 }
@@ -1526,7 +1538,7 @@ function save() {
 function applySaved(saved) {
   if (!saved) return;
   if (saved.display) Object.assign(state.display, saved.display);
-  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.aoiPoints = saved.buffer.aoi || []; }
+  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.buffer.minForestHa = saved.buffer.minForestHa ?? state.buffer.minForestHa; state.aoiPoints = saved.buffer.aoi || []; }
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
@@ -1583,7 +1595,7 @@ function recomputeScene(s) {
 function recomputeBuffer(s) {
   const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx) });
   s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
@@ -1711,8 +1723,8 @@ function buildOverlay(frame) {
   }
   const d = state.display;
   composeOverlay(overlayData, {
-    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band,
-  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost });
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band, sparse: frame.base.cls.sparse,
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost, showSparse: !!d.showSparse });
   overlayCtx.putImageData(overlayData, 0, 0);
   return overlayCanvas;
 }
@@ -1871,6 +1883,7 @@ function setupDisplayPanel() {
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showSparse', () => !!d.showSparse, (v) => { d.showSparse = v; save(); syncLegend(); requestRender(); });
   bindCheck('showField', () => !!d.showField, (v) => { d.showField = v; save(); syncLegend(); requestRender(); });
   bindCheck('showBandLost', () => !!d.showBandLost, (v) => { d.showBandLost = v; save(); syncLegend(); requestRender(); });
   bindCheck('showForest', () => d.showForest, (v) => { d.showForest = v; save(); syncLegend(); requestRender(); });
@@ -1884,7 +1897,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
@@ -1990,6 +2003,7 @@ function scheduleSceneRecompute(s) {
 
 function setupBufferPanel() {
   bindRange('forestNear', 'forestNearVal', () => state.buffer.forestNearM, (v) => { state.buffer.forestNearM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
+  bindRange('minForest', 'minForestVal', () => state.buffer.minForestHa, (v) => { state.buffer.minForestHa = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} ha 以上` : '制限なし'));
   bindRange('coastAway', 'coastAwayVal', () => state.buffer.coastAwayM, (v) => { state.buffer.coastAwayM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし（疎林・草地すべて）'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
