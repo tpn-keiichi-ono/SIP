@@ -31,6 +31,8 @@ window.SIP_CONFIG = {
     },
   },
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
+  // 緩衝帯 = 陸域の開放地すべて（edgeBandM: 0）、解析範囲 = 画像全体（aoi: []）
   buffer: { edgeBandM: 0, aoi: [] },
+  // 消失判定 = 最初の観測面積の 5 %、傾向モデル = 線形（推奨）
   simulation: { model: 'linear', thresholdPct: 5, startId: null, jitterM: 12, protectM: 0, seed: 1, manualRatePct: -2 },
 };
