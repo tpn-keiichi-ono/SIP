@@ -230,6 +230,9 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <p class="note"><b>緩衝帯</b> = 生活空間（住宅地・田畑・人工物）の周囲の帯のうち、密な森林ではない「疎林・草地」の部分。帯の中が森林になると緩衝帯が失われたとみなします。</p>
         <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="50"><span class="val" id="edgeBandVal">50 m</span></div>
         <p class="note">0 にすると帯で限定せず、疎林・草地すべてを緩衝帯とします。</p>
+        <div class="ctl"><label for="forestNear">森林からの距離 (m) 以内</label><input type="range" id="forestNear" min="0" max="150" step="10" value="40"><span class="val" id="forestNearVal">40 m</span></div>
+        <div class="ctl"><label for="coastAway">海岸から (m) 以上離す</label><input type="range" id="coastAway" min="0" max="200" step="10" value="60"><span class="val" id="coastAwayVal">60 m</span></div>
+        <p class="note">緩衝帯は森林に面した側だけに限ります。「森林からの距離」以内に密な森林がない縁（海側など）と、海岸に近い部分は緩衝帯にしません。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
@@ -321,7 +324,8 @@ window.SIP_CONFIG = {
   },
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 生活空間（住宅地・田畑・人工物）の周囲 edgeBandM (m) の帯のうち疎林・草地の部分。解析範囲 = 画像全体（aoi: []）
-  buffer: { edgeBandM: 50, aoi: [] },
+  // forestNearM: この距離以内に密な森林がある部分だけ（森に面した側だけ）、coastAwayM: 海岸からこの距離以内は緩衝帯にしない
+  buffer: { edgeBandM: 50, forestNearM: 40, coastAwayM: 60, aoi: [] },
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {
@@ -914,11 +918,13 @@ function classifyScene(feat, W, H, params, water, samples) {
  * （疎林・草地）が「機能している緩衝帯」。帯の中で森林になった部分は緩衝帯が失われた場所。
  *  - human      … 生活空間マスク（住宅地多角形など。田畑・人工物は cls から加える）
  *  - bandPx     … 生活空間からの帯の幅（画素）。0 なら帯で限定せず、疎林・草地すべてを緩衝帯とする
+ *  - forestNearPx … 0 より大きい場合、この距離以内に密な森林がある画素だけを緩衝帯とする（海側など森に面していない縁を除く）
+ *  - coastAwayPx  … 0 より大きい場合、水域からこの距離以内の画素は緩衝帯にしない
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 60 } = {}) {
+function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 60, forestNearPx = 0, coastAwayPx = 0, water = null } = {}) {
   const n = W * H;
   // 田畑・人工物は、森の中の小さな断片（誤判定や小屋など）を除き、まとまった区画だけを生活空間とみなす
   const fieldBuilt = new Uint8Array(n);
@@ -935,6 +941,16 @@ function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, hum
     for (let i = 0; i < n; i++) buf[i] = band[i] && cls.sparse[i] ? 1 : 0;
   } else {
     for (let i = 0; i < n; i++) buf[i] = cls.sparse[i] && !humanAll[i] ? 1 : 0;
+  }
+  if (forestNearPx > 0) {
+    const dF = distanceTransform(cls.forest, W, H);
+    for (let i = 0; i < n; i++) if (buf[i] && dF[i] > forestNearPx) buf[i] = 0;
+  }
+  if (coastAwayPx > 0 && (water || cls.coast)) {
+    const wc = new Uint8Array(n);
+    for (let i = 0; i < n; i++) wc[i] = (water && water[i]) || (cls.coast && cls.coast[i]) ? 1 : 0;
+    const dW = distanceTransform(wc, W, H);
+    for (let i = 0; i < n; i++) if (buf[i] && dW[i] <= coastAwayPx) buf[i] = 0;
   }
   let out = minBufferRegionPx > 1 ? removeSmallRegions(buf, W, H, minBufferRegionPx, 8) : buf; // 帯の中の細かな斑点を除く
   if (correction) {
@@ -1389,7 +1405,7 @@ const state = {
   settlement: { autoM: CFG.settlement?.autoM ?? 30, polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
-  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0 },
+  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60 },
   sim: { ...CFG.simulation },
   samples: normalizeSamples(CFG.samples),
   sampleTool: { mode: null, radius: 10, shared: false, show: false },
@@ -1433,7 +1449,7 @@ function serialize() {
       id: s.id, file: s.file, year: s.year, label: s.label, estimated: !!s.estimated, params: s.params,
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
-    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, aoi: state.aoiPoints }, sim: state.sim,
+    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, aoi: state.aoiPoints }, sim: state.sim,
     samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
   };
 }
@@ -1445,7 +1461,7 @@ function save() {
 function applySaved(saved) {
   if (!saved) return;
   if (saved.display) Object.assign(state.display, saved.display);
-  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.aoiPoints = saved.buffer.aoi || []; }
+  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.aoiPoints = saved.buffer.aoi || []; }
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
@@ -1502,7 +1518,7 @@ function recomputeScene(s) {
 function recomputeBuffer(s) {
   const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water });
   s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
@@ -1888,6 +1904,8 @@ function scheduleSceneRecompute(s) {
 }
 
 function setupBufferPanel() {
+  bindRange('forestNear', 'forestNearVal', () => state.buffer.forestNearM, (v) => { state.buffer.forestNearM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
+  bindRange('coastAway', 'coastAwayVal', () => state.buffer.coastAwayM, (v) => { state.buffer.coastAwayM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし（疎林・草地すべて）'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
   $('btnAoiDone').addEventListener('click', finishAoi);

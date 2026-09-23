@@ -119,6 +119,9 @@
         <p class="note"><b>緩衝帯</b> = 生活空間（住宅地・田畑・人工物）の周囲の帯のうち、密な森林ではない「疎林・草地」の部分。帯の中が森林になると緩衝帯が失われたとみなします。</p>
         <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="50"><span class="val" id="edgeBandVal">50 m</span></div>
         <p class="note">0 にすると帯で限定せず、疎林・草地すべてを緩衝帯とします。</p>
+        <div class="ctl"><label for="forestNear">森林からの距離 (m) 以内</label><input type="range" id="forestNear" min="0" max="150" step="10" value="40"><span class="val" id="forestNearVal">40 m</span></div>
+        <div class="ctl"><label for="coastAway">海岸から (m) 以上離す</label><input type="range" id="coastAway" min="0" max="200" step="10" value="60"><span class="val" id="coastAwayVal">60 m</span></div>
+        <p class="note">緩衝帯は森林に面した側だけに限ります。「森林からの距離」以内に密な森林がない縁（海側など）と、海岸に近い部分は緩衝帯にしません。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
