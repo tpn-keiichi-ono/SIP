@@ -15,8 +15,8 @@ window.SIP_CONFIG = {
     { id: '1', file: 'data/images/1.webp', year: 1965, label: '1960年代 モノクロ空中写真', estimated: true, params: {} },
     { id: '2', file: 'data/images/2.webp', year: 1976, label: '1970年代後半 カラー', estimated: true, params: {} },
     { id: '5', file: 'data/images/5.webp', year: 1985, label: '1980年代 カラー', estimated: true, params: {} },
-    { id: '3', file: 'data/images/3.webp', year: 2010, label: '2000年代後半以降', estimated: true, params: {} },
-    { id: '4', file: 'data/images/4.webp', year: 2020, label: '最新写真', estimated: true, params: {} },
+    { id: '3', file: 'data/images/3.webp', year: 2022, label: '2022年', estimated: false, params: {} },
+    { id: '4', file: 'data/images/4.webp', year: 2020, label: '高解像度写真（年は推定）', estimated: true, params: {} },
   ],
   // 教師サンプル（画像座標の円）。shared は全時期に共通、byScene は時期ごとの追加。
   // 森林（密） forest / 疎林・草地（間伐地・緩衝帯候補） sparse / 田畑 open / 人工物・裸地 built。画面上でクリックして追加・削除できる。
