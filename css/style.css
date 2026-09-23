@@ -33,6 +33,13 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-for::before { background: rgba(40,150,70,.7); }
 #legend .l-built::before { background: rgba(235,235,235,.8); }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
+#photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 12px; }
+#photoPopup[hidden] { display: none; }
+#photoPopup img { width: 100%; display: block; border-radius: 4px; }
+#photoPopup #photoClose { position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; padding: 0; border-radius: 14px; background: rgba(0,0,0,.6); color: #fff; border: 0; z-index: 1; }
+#photoPopup #photoMeta { margin-top: 6px; line-height: 1.5; }
+#photoPopup .btns button { background: #333; color: #fff; border-color: #555; padding: 4px 10px; min-height: 28px; }
+@media (max-width: 720px) { #photoPopup { width: 60%; top: auto; bottom: 40px; } }
 #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; z-index: 5; }
 #loading[hidden] { display: none; }
 #timeline { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px 4px; }

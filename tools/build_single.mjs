@@ -28,9 +28,25 @@ for (const f of order) {
   bundle += `\n// ===== ${f} =====\n${src}`;
 }
 
+// 現地写真: 一覧 JSON とサムネイル・中サイズ画像を data URI で埋め込む
+let photosScript = '';
+try {
+  
+} catch {}
+const m = config.match(/list: '([^']+photos\.json)'/);
+if (m && fs.existsSync(path.join(root, m[1]))) {
+  const pj = JSON.parse(fs.readFileSync(path.join(root, m[1]), 'utf8'));
+  const dir = pj.dir || path.dirname(m[1]);
+  for (const p of pj.photos) {
+    const base = p.file.replace(/\.[^.]+$/, '');
+    const th = path.join(dir, 'thumbs', base + '.jpg'), md = path.join(dir, 'mid', base + '.jpg');
+    if (fs.existsSync(path.join(root, th))) p.thumbData = dataUri(th);
+  }
+  photosScript = `<script>window.SIP_PHOTOS = ${JSON.stringify(pj)};</script>\n`;
+}
 let html = read('index.html');
 html = html.replace('<link rel="stylesheet" href="css/style.css">', `<style>\n${read('css/style.css')}\n</style>`);
-html = html.replace('<script src="data/config.js"></script>', `<script>\n${config}\n</script>`);
+html = html.replace('<script src="data/config.js"></script>', `<script>\n${config}\n</script>\n${photosScript}`);
 html = html.replace('<script type="module" src="js/main.js"></script>', `<script>\n(() => {${bundle}\n})();\n</script>`);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 const out = path.join(root, 'dist', 'forest-buffer-simulator.html');

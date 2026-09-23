@@ -25,6 +25,12 @@
       <div id="legend">
         <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
       </div>
+      <div id="photoPopup" hidden>
+        <button id="photoClose" title="閉じる">×</button>
+        <a id="photoLink" target="_blank" rel="noopener"><img id="photoImg" alt="現地写真"></a>
+        <div id="photoMeta"></div>
+        <div class="btns"><button id="photoPrev">◀ 前</button><button id="photoNext">次 ▶</button></div>
+      </div>
       <div id="loading"><div style="max-width:560px;text-align:center;line-height:1.6">画像を読み込んで分類しています…<br><small id="loadingHint">この表示のまま変わらない場合、スクリプトの実行が許可されていない環境（ファイルプレビューなど）です。ブラウザで直接開くか、サーバー経由で開いてください。</small></div></div>
     </div>
     <div id="timeline">
@@ -61,6 +67,7 @@
           <label><input type="checkbox" id="crossfade" checked> 背景写真をクロスフェード</label>
           <label><input type="checkbox" id="fixLatest"> 背景を最新写真に固定</label>
           <label><input type="checkbox" id="showOverlay" checked> オーバーレイ表示</label>
+          <label><input type="checkbox" id="showPhotos" checked> 現地写真のピン</label>
         </div>
         <div class="btns"><button id="btnFit">全体表示</button><span class="note">ドラッグで移動、ホイールまたはピンチで拡大縮小</span></div>
       </div>

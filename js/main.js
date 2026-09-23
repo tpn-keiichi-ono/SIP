@@ -30,7 +30,85 @@ const state = {
   view: { scale: 1, tx: 0, ty: 0 },
   brush: { mode: 0, size: 12, painting: false },
   recording: null,
+  photos: [], photoIndex: -1,
 };
+
+// ---------- 現地写真（GPS 付き） ----------
+function mercToImage(lat, lon) {
+  const g = CFG.georef; if (!g) return null;
+  const n = Math.pow(2, g.zoom) * 256;
+  const x = (lon + 180) / 360 * n;
+  const la = lat * Math.PI / 180;
+  const y = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n;
+  return { x: x - g.originX, y: y - g.originY };
+}
+async function loadPhotos() {
+  if (window.SIP_PHOTOS) { state.photos = preparePhotos(window.SIP_PHOTOS); return; }
+  if (!CFG.photos?.list || !CFG.georef) return;
+  try { const res = await fetch(CFG.photos.list); if (!res.ok) throw new Error(res.status); state.photos = preparePhotos(await res.json()); }
+  catch (e) { console.warn('現地写真の一覧を読み込めません', e); }
+}
+function preparePhotos(data) {
+  const dir = data.dir || 'data/photos/mauracho';
+  return (data.photos || []).map((p, i) => {
+    const q = mercToImage(p.lat, p.lon);
+    const base = p.file.replace(/\.[^.]+$/, '');
+    return { ...p, i, x: q?.x, y: q?.y, thumb: p.thumbData || `${dir}/thumbs/${base}.jpg`, mid: p.midData || p.thumbData || `${dir}/mid/${base}.jpg`, full: `${dir}/${p.file}` };
+  }).filter(p => Number.isFinite(p.x));
+}
+function drawPhotos(ctx) {
+  if (state.display.showPhotos === false || !state.photos.length) return;
+  ctx.save();
+  ctx.font = 'bold 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // 軌跡
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath();
+  state.photos.forEach((p, k) => { const q = toScreen(p.x, p.y); if (k) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); }); ctx.stroke();
+  state.photos.forEach((p, k) => {
+    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const r = sel ? 11 : 8;
+    if (p.dir != null) { // 撮影方向
+      const a = (p.dir - 90) * Math.PI / 180;
+      ctx.strokeStyle = sel ? '#ffd400' : 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + Math.cos(a) * (r + 9), q.y + Math.sin(a) * (r + 9)); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fillStyle = sel ? '#ffd400' : 'rgba(40,120,255,0.92)'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = sel ? '#000' : '#fff'; ctx.fillText(String(k + 1), q.x, q.y);
+  });
+  ctx.restore();
+}
+function photoAt(sx, sy) {
+  if (state.display.showPhotos === false) return -1;
+  let best = -1, bd = 12;
+  state.photos.forEach((p, k) => { const q = toScreen(p.x, p.y); const d = Math.hypot(q.x - sx, q.y - sy); if (d < bd) { bd = d; best = k; } });
+  return best;
+}
+function classAt(x, y) {
+  const s = lastFrame?.base; if (!s) return '';
+  const i = Math.round(y) * state.W + Math.round(x); if (i < 0 || i >= state.W * state.H) return '';
+  if (lastFrame.cur[i]) return '森林緩衝帯';
+  if (s.settlement && s.settlement[i]) return '住宅地（生活空間）';
+  if (s.cls.open[i]) return '田畑（生活空間）';
+  if (s.cls.built[i]) return '人工物・裸地';
+  if (s.cls.sparse[i]) return '疎林・草地（帯の外）';
+  if (s.cls.forest[i]) return '森林（密）';
+  if (!s.cls.land[i]) return '水域・海岸';
+  return '—';
+}
+function showPhoto(k) {
+  const pop = $('photoPopup');
+  if (k < 0 || k >= state.photos.length) { state.photoIndex = -1; pop.hidden = true; requestRender(); return; }
+  state.photoIndex = k; const p = state.photos[k];
+  $('photoImg').src = p.mid; $('photoLink').href = p.full;
+  const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
+  $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
+  pop.hidden = false; requestRender();
+}
+function setupPhotos() {
+  bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); requestRender(); });
+  $('photoClose').addEventListener('click', () => showPhoto(-1));
+  $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
+  $('photoNext').addEventListener('click', () => showPhoto((state.photoIndex + 1) % state.photos.length));
+  if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; }
+}
 
 // ---------- 教師サンプル ----------
 const SAMPLE_COLORS = { forest: '#3ddc84', sparse: '#ff9f1a', open: '#ffd400', built: '#4fd3ff' };
@@ -329,6 +407,7 @@ function render() {
   if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
   if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
   if (state.display.showSettlement !== false || state.houseTool) drawHouses(vctx);
+  drawPhotos(vctx);
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
   updateHud(frame);
   chart.setCurrentYear(state.year);
@@ -701,6 +780,7 @@ function setupViewer() {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
+    if (!state.sampleTool.mode && !state.houseTool && !state.settleDrawing && !state.aoiDrawing && state.brush.mode === 0) { const k = photoAt(e.clientX - r.left, e.clientY - r.top); if (k >= 0) { showPhoto(k); return; } }
     if (state.sampleTool.mode) { sampleClick(p); return; }
     if (state.houseTool === 'add') {
       const s = selectedScene();
@@ -874,7 +954,8 @@ async function init() {
     state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null;
     if (state.aoiMask) for (const s of state.scenes) recomputeBuffer(s);
     document.title = CFG.title || document.title; $('title').textContent = CFG.title || $('title').textContent;
-    setupDisplayPanel(); setupParamPanel(); setupBufferPanel(); setupSimPanel(); setupIO(); setupViewer();
+    await loadPhotos();
+    setupDisplayPanel(); setupParamPanel(); setupBufferPanel(); setupSimPanel(); setupIO(); setupViewer(); setupPhotos();
     $('btnPlay').addEventListener('click', () => togglePlay());
     $('btnPrev').addEventListener('click', () => { const ys = state.timeline.scenes.map(s => s.year).filter(y => y < state.year - 1e-6); setYear(ys.length ? ys[ys.length - 1] : state.timeline.xMin); });
     $('btnNext').addEventListener('click', () => { const ys = state.timeline.scenes.map(s => s.year).filter(y => y > state.year + 1e-6); setYear(ys.length ? ys[0] : state.timeline.xMax); });
@@ -899,6 +980,8 @@ window.SIP = {
   state,
   setYear: (y) => { setYear(y); render(); },
   getFrame: () => lastFrame && { year: lastFrame.t, mode: lastFrame.mode, areaHa: lastFrame.areaHa, lostHa: lastFrame.lostHa },
+  photos: () => state.photos.map(p => ({ file: p.file, x: Math.round(p.x), y: Math.round(p.y), cls: classAt(p.x, p.y) })),
+  showPhoto,
   getStats: () => state.timeline && state.timeline.scenes.map(s => ({ id: s.id, year: s.year, label: s.label, ...s.stats, useGauss: s.cls.useGauss, hasSparse: s.cls.hasSparse, bias: s.cls.resolved.bias })),
   getProjection: () => state.timeline && { start: state.timeline.start.year, disappearYear: state.timeline.projection.disappearYear, rateHa: state.timeline.projection.sched.rateHa, ratePct: state.timeline.projection.sched.ratePct, r2: state.timeline.trend.r2, thresholdHa: state.timeline.thresholdHa, xMax: state.timeline.xMax },
   renderFrame: (W, H) => renderToCanvas(W || state.W, H || state.H).toDataURL('image/png'),
