@@ -159,7 +159,7 @@ export function defaultParams(grayscale) {
     builtMin: grayscale ? 200 : 190, // サンプルが無いときの人工物の輝度下限（256 で無効）
     builtChromaMax: grayscale ? 255 : 24,
     varFloor: 9,          // 分散の下限（特徴量が一定のときの 0 除算防止・過学習防止）
-    strictness: 2,        // 判定の厳しさ: 1 位と 2 位のクラスの距離差（マハラノビス距離²）がこれ未満なら「確信なし」として森林扱い
+    strictness: 4,        // 判定の厳しさ: 1 位と 2 位のクラスの距離差（マハラノビス距離²）がこれ未満なら「確信なし」として森林扱い
     majority: 2,          // 近傍多数決の窓半径（画素）。0 で無効
     coastExclude: true,   // 水域に接する白波・砂浜・岩礁を陸域から除く
   };
