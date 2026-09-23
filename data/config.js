@@ -33,6 +33,18 @@ window.SIP_CONFIG = {
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 陸域の開放地すべて（edgeBandM: 0）、解析範囲 = 画像全体（aoi: []）
   buffer: { edgeBandM: 0, aoi: [] },
+  // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
+  // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
+  settlement: {
+    autoM: 0, // 0 = 描いた多角形だけを生活空間とする（岩場などの誤検出を巻き込まないため）
+    polygons: [
+      [{ x: 395, y: 360 }, { x: 480, y: 355 }, { x: 500, y: 290 }, { x: 560, y: 290 }, { x: 600, y: 370 }, { x: 600, y: 470 }, { x: 500, y: 470 }, { x: 470, y: 430 }, { x: 400, y: 400 }],
+      [{ x: 690, y: 400 }, { x: 760, y: 400 }, { x: 770, y: 460 }, { x: 690, y: 460 }],
+      [{ x: 495, y: 200 }, { x: 550, y: 200 }, { x: 555, y: 270 }, { x: 495, y: 270 }],
+      [{ x: 190, y: 620 }, { x: 265, y: 620 }, { x: 270, y: 690 }, { x: 185, y: 690 }],
+      [{ x: 850, y: 190 }, { x: 900, y: 190 }, { x: 900, y: 240 }, { x: 850, y: 240 }],
+    ],
+  },
   // 消失判定 = 最初の観測面積の 5 %、傾向モデル = 線形（推奨）
   simulation: { model: 'linear', thresholdPct: 5, startId: null, jitterM: 12, protectM: 0, seed: 1, manualRatePct: -2 },
 };

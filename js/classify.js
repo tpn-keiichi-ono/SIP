@@ -275,11 +275,12 @@ export function classifyScene(feat, W, H, params, water, samples) {
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  *  - edgeBandPx … 0 より大きい場合、森林境界からこの距離以内の開放地だけを緩衝帯とみなす
+ *  - exclude    … 生活空間（住宅地）など、緩衝帯から除外する領域のマスク
  */
-export function buildBuffer(cls, W, H, { aoi = null, correction = null, edgeBandPx = 0 } = {}) {
+export function buildBuffer(cls, W, H, { aoi = null, correction = null, edgeBandPx = 0, exclude = null } = {}) {
   const n = W * H;
   const buf = new Uint8Array(n);
-  for (let i = 0; i < n; i++) buf[i] = cls.open[i];
+  for (let i = 0; i < n; i++) buf[i] = cls.open[i] && !(exclude && exclude[i]) ? 1 : 0;
   if (edgeBandPx > 0) {
     const d = distanceTransform(cls.forest, W, H);
     for (let i = 0; i < n; i++) if (buf[i] && d[i] > edgeBandPx) buf[i] = 0;

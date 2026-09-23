@@ -23,7 +23,7 @@
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">生活空間</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
       </div>
       <div id="loading">画像を読み込んで分類しています…</div>
     </div>
@@ -51,6 +51,7 @@
         <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
+          <label><input type="checkbox" id="showSettlement" checked> 生活空間（住宅地）</label>
           <label><input type="checkbox" id="showForest"> 森林（緑）</label>
           <label><input type="checkbox" id="showBuilt"> 人工物・裸地</label>
           <label><input type="checkbox" id="showWater"> 水域</label>
@@ -116,6 +117,11 @@
         <p class="note">0 なら陸域の開放地すべてを緩衝帯とみなします。値を入れると森林境界からその距離以内の開放地だけを緩衝帯とします。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
+        <p class="note"><b>生活空間（住宅地・集落）</b>は緩衝帯に含めません。下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
+        <div class="ctl"><label for="settleM">人工物の周囲 (m)</label><input type="range" id="settleM" min="0" max="150" step="5" value="0"><span class="val" id="settleMVal">なし</span></div>
+        <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
+        <p class="note" id="settleInfo"></p>
         <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>
         <div class="ctl"><label for="brushSize">ブラシ半径 (px)</label><input type="range" id="brushSize" min="2" max="60" step="1" value="12"><span class="val" id="brushSizeVal">12</span></div>
         <div class="btns"><button id="btnCorrClear">この時期の修正をクリア</button></div>

@@ -1,7 +1,7 @@
 // main.js — UI とデータフローの本体。
 // 流れ: 画像読み込み → 特徴量 → 水域マスク → 時期ごとの分類 → 緩衝帯マスク → 補間・予測の前計算 → 描画
 
-import { polygonMask, rleEncode, rleDecode } from './morph.js';
+import { polygonMask, rleEncode, rleDecode, dilate } from './morph.js';
 import { computeFeatures, buildWaterMask, classifyScene, buildBuffer, defaultParams, countMask } from './classify.js';
 import { fitTrend, buildIntervals, interpolate, buildProjection } from './timeline.js';
 import { composeOverlay, drawPolygon } from './render.js';
@@ -15,6 +15,8 @@ const state = {
   W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
   scenes: [], water: null,
   aoiPoints: [], aoiMask: null, aoiDrawing: false,
+  settlement: { autoM: CFG.settlement?.autoM ?? 30, polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
+  settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0 },
   sim: { ...CFG.simulation },
@@ -60,7 +62,7 @@ function serialize() {
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
     display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, aoi: state.aoiPoints }, sim: state.sim,
-    samples: state.samples, coastBandM: state.coastBandM,
+    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
   };
 }
 let saveTimer = null;
@@ -75,6 +77,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.scenes) {
     for (const ss of saved.scenes) {
       const s = state.scenes.find(x => x.id === ss.id);
@@ -126,13 +129,27 @@ function recomputeScene(s) {
 }
 function recomputeBuffer(s) {
   const edgeBandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
-  s.buffer = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, edgeBandPx });
+  s.settlement = settlementMask(s);
+  s.buffer = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, edgeBandPx, exclude: s.settlement });
   s.stats = {
+    settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
     land: countMask(s.cls.land, state.aoiMask) * state.pxAreaHa,
     buffer: countMask(s.buffer) * state.pxAreaHa,
     forest: countMask(s.cls.forest, state.aoiMask) * state.pxAreaHa,
     built: countMask(s.cls.built, state.aoiMask) * state.pxAreaHa,
   };
+}
+/** 生活空間マスク = 描いた多角形 ∪ 人工物の周囲 autoM (m)。 */
+function settlementMask(s) {
+  const n = state.W * state.H;
+  if (!state.settlePolyMask) {
+    state.settlePolyMask = new Uint8Array(n);
+    for (const poly of state.settlement.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.settlePolyMask[i] = 1; }
+  }
+  const out = Uint8Array.from(state.settlePolyMask);
+  const r = Math.round((state.settlement.autoM || 0) / state.mPerPx);
+  if (r > 0 && s.cls?.built) { const d = dilate(s.cls.built, state.W, state.H, r); for (let i = 0; i < n; i++) if (d[i] && s.cls.land[i]) out[i] = 1; }
+  return out;
 }
 function sortedScenes() { return state.scenes.filter(s => s.buffer).slice().sort((a, b) => a.year - b.year); }
 
@@ -233,8 +250,8 @@ function buildOverlay(frame) {
   }
   const d = state.display;
   composeOverlay(overlayData, {
-    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask,
-  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater });
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement,
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false });
   overlayCtx.putImageData(overlayData, 0, 0);
   return overlayCanvas;
 }
@@ -282,6 +299,8 @@ function render() {
   if (state.display.showOverlay !== false) vctx.drawImage(buildOverlay(frame), 0, 0);
   vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
+  if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
+  if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
   updateHud(frame);
   chart.setCurrentYear(state.year);
@@ -380,6 +399,7 @@ function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
   bindCheck('showForest', () => d.showForest, (v) => { d.showForest = v; save(); syncLegend(); requestRender(); });
   bindCheck('showBuilt', () => d.showBuilt, (v) => { d.showBuilt = v; save(); syncLegend(); requestRender(); });
   bindCheck('showWater', () => d.showWater, (v) => { d.showWater = v; save(); syncLegend(); requestRender(); });
@@ -391,7 +411,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
@@ -453,7 +473,7 @@ function setupSampleTools() {
     state.sampleTool.mode = state.sampleTool.mode === cls ? null : cls;
     tools.querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.cls === state.sampleTool.mode));
     viewer.classList.toggle('drawing', !!state.sampleTool.mode);
-    if (state.sampleTool.mode) { state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('brushMode').value = '0'; state.brush.mode = 0; viewer.classList.remove('brush'); }
+    if (state.sampleTool.mode) { if (state.settleDrawing) finishSettle(); state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('brushMode').value = '0'; state.brush.mode = 0; viewer.classList.remove('brush'); }
     requestRender();
   }));
   bindRange('sampleRadius', 'sampleRadiusVal', () => state.sampleTool.radius, (v) => { state.sampleTool.radius = v; }, (v) => v.toFixed(0));
@@ -494,6 +514,16 @@ function setupBufferPanel() {
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '全域'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
   $('btnAoiDone').addEventListener('click', finishAoi);
+  bindRange('settleM', 'settleMVal', () => state.settlement.autoM, (v) => { state.settlement.autoM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし'));
+  $('btnSettle').addEventListener('click', () => {
+    state.settleDrawing = !state.settleDrawing; state.settlePoints = [];
+    if (state.settleDrawing && state.aoiDrawing) finishAoi();
+    $('btnSettle').classList.toggle('active', state.settleDrawing); $('btnSettleDone').hidden = !state.settleDrawing; viewer.classList.toggle('drawing', state.settleDrawing); requestRender();
+  });
+  $('btnSettleDone').addEventListener('click', finishSettle);
+  $('btnSettleUndo').addEventListener('click', () => { state.settlement.polygons.pop(); settlementChanged(); });
+  $('btnSettleClear').addEventListener('click', () => { if (!state.settlement.polygons.length || confirm('描いた生活空間の範囲をすべて削除しますか？')) { state.settlement.polygons = []; settlementChanged(); } });
+  updateSettleInfo();
   $('btnAoiClear').addEventListener('click', () => { state.aoiPoints = []; state.aoiMask = null; state.aoiDrawing = false; $('btnAoi').classList.remove('active'); viewer.classList.remove('drawing'); save(); recomputeAllBuffers(); });
   const bm = $('brushMode'); bm.addEventListener('change', () => { state.brush.mode = Number(bm.value); viewer.classList.toggle('brush', state.brush.mode !== 0); });
   bindRange('brushSize', 'brushSizeVal', () => state.brush.size, (v) => { state.brush.size = v; }, (v) => v.toFixed(0));
@@ -502,6 +532,15 @@ function setupBufferPanel() {
 let bufferTimer = null;
 function scheduleBufferRecompute() { clearTimeout(bufferTimer); bufferTimer = setTimeout(recomputeAllBuffers, 120); }
 function recomputeAllBuffers() { for (const s of state.scenes) if (s.cls) recomputeBuffer(s); rebuildTimeline(); requestRender(); }
+function finishSettle() {
+  state.settleDrawing = false; $('btnSettle').classList.remove('active'); $('btnSettleDone').hidden = true; viewer.classList.remove('drawing');
+  const pts = state.settlePoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
+  state.settlePoints = [];
+  if (pts.length >= 3) state.settlement.polygons.push(pts);
+  settlementChanged();
+}
+function settlementChanged() { state.settlePolyMask = null; save(); updateSettleInfo(); recomputeAllBuffers(); }
+function updateSettleInfo() { $('settleInfo').textContent = `描いた範囲: ${state.settlement.polygons.length} か所`; }
 function finishAoi() {
   state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
@@ -549,7 +588,7 @@ function updateStats() {
   for (const s of tl.scenes) {
     const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : null;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
+    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${s.stats.settlement.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
     tb.appendChild(tr); prev = s;
   }
   $('scaleNote').textContent = `縮尺 ${state.mPerPx.toFixed(3)} m/px（スケールバー ${CFG.scale?.barMeters} m = ${CFG.scale?.barPx} px）、1 画素 = ${(state.pxAreaHa * 10000).toFixed(2)} m²、陸域 ${tl.scenes[0].stats.land.toFixed(1)} ha${state.aoiMask ? '（解析範囲内）' : ''}`;
@@ -579,7 +618,7 @@ function setupViewer() {
       return;
     }
     lastX = e.clientX; lastY = e.clientY; moved = false;
-    if (state.aoiDrawing || state.sampleTool.mode) return;
+    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
@@ -613,10 +652,11 @@ function setupViewer() {
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
     if (state.sampleTool.mode) { sampleClick(p); return; }
+    if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
     if (!state.aoiDrawing) return;
     state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();
   });
-  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } });
+  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } else if (state.settleDrawing) { e.preventDefault(); finishSettle(); } });
   viewer.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = viewer.getBoundingClientRect();
@@ -627,7 +667,7 @@ function setupViewer() {
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
-    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
+    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
   });
   new ResizeObserver(() => { fitView(); chart.draw(); }).observe($('viewerWrap'));
 }
@@ -643,7 +683,7 @@ function paintAt(e) {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     if ((x - p.x) ** 2 + (y - p.y) ** 2 > rad * rad) continue;
     const i = y * state.W + x; s.correction[i] = v;
-    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) ? 1 : 0) : 0;
+    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) && !(s.settlement && s.settlement[i]) ? 1 : 0) : 0;
   }
   requestRender();
 }
@@ -660,7 +700,7 @@ function setupIO() {
   $('btnJson').addEventListener('click', () => download(new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' }), 'forest-buffer-settings.json'));
   $('jsonInput').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; save(); recomputeAll(); }
+    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; state.settlePolyMask = null; updateSettleInfo(); save(); recomputeAll(); }
     catch (err) { alert('設定を読み込めませんでした: ' + err.message); }
     e.target.value = '';
   });
@@ -715,19 +755,19 @@ function exportPng() {
 }
 function exportCsv() {
   const tl = state.timeline; if (!tl) return;
-  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,人工物_ha,増減_ha_per_年'];
+  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,人工物_ha,生活空間_ha,増減_ha_per_年'];
   let prev = null;
   for (const s of tl.scenes) {
     const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : '';
-    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.built.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
+    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.built.toFixed(2), s.stats.settlement.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
     prev = s;
   }
   if (tl.trend.ok) {
     for (let y = Math.ceil(tl.start.year / 5) * 5; y <= tl.xMax; y += 5) {
       if (y <= tl.start.year) continue;
-      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
+      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
     }
-    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', ''].join(','));
+    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', '', ''].join(','));
   }
   download(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }), 'forest-buffer-areas.csv');
 }

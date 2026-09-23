@@ -14,6 +14,9 @@ export const DEFAULT_STYLE = {
   builtOpacity: 0.35,
   waterColor: [60, 120, 220],
   waterOpacity: 0.3,
+  settlementColor: [250, 250, 250],
+  settlementOpacity: 0.35,
+  showSettlement: true,
   showForest: false,
   showLost: true,
   showBuilt: false,
@@ -35,14 +38,17 @@ export function composeOverlay(imgData, layers, style) {
   const cFor = pack(s.forestColor[0], s.forestColor[1], s.forestColor[2], Math.round(255 * s.forestOpacity));
   const cBuilt = pack(s.builtColor[0], s.builtColor[1], s.builtColor[2], Math.round(255 * s.builtOpacity));
   const cWater = pack(s.waterColor[0], s.waterColor[1], s.waterColor[2], Math.round(255 * s.waterOpacity));
+  const cSet = pack(s.settlementColor[0], s.settlementColor[1], s.settlementColor[2], Math.round(255 * s.settlementOpacity));
   const cDim = pack(20, 20, 20, 110);
-  const { buffer, lost, forest, built, water, aoi } = layers;
+  const { buffer, lost, forest, built, water, aoi, settlement } = layers;
+  const showSet = s.showSettlement && settlement;
   const showLost = s.showLost && lost, showForest = s.showForest && forest, showBuilt = s.showBuilt && built, showWater = s.showWater && water;
   const dim = s.dimOutsideAoi && aoi;
   for (let i = 0; i < n; i++) {
     let v = 0;
     if (buffer && buffer[i]) v = cBuf;
     else if (showLost && lost[i]) v = cLost;
+    else if (showSet && settlement[i]) v = cSet;
     else if (showWater && water[i]) v = cWater;
     else if (showBuilt && built[i]) v = cBuilt;
     else if (showForest && forest[i]) v = cFor;
@@ -53,11 +59,11 @@ export function composeOverlay(imgData, layers, style) {
 }
 
 /** 多角形を画面座標系で描く（AOI の輪郭・頂点）。 */
-export function drawPolygon(ctx, pts, toScreen, { closed = true, color = '#ffd400', vertexRadius = 4 } = {}) {
+export function drawPolygon(ctx, pts, toScreen, { closed = true, color = '#ffd400', vertexRadius = 4, dash = [6, 4] } = {}) {
   if (!pts || !pts.length) return;
   ctx.save();
   ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.fillStyle = color;
-  ctx.setLineDash([6, 4]);
+  ctx.setLineDash(dash);
   ctx.beginPath();
   pts.forEach((p, i) => { const q = toScreen(p.x, p.y); if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y); });
   if (closed && pts.length > 2) ctx.closePath();

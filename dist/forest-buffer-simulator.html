@@ -33,6 +33,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
 #legend .l-lost::before { background: rgba(120,10,40,.75); }
+#legend .l-set::before { background: rgba(250,250,250,.8); }
 #legend .l-for::before { background: rgba(40,150,70,.7); }
 #legend .l-built::before { background: rgba(235,235,235,.8); }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
@@ -131,7 +132,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">生活空間</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
       </div>
       <div id="loading">画像を読み込んで分類しています…</div>
     </div>
@@ -159,6 +160,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
+          <label><input type="checkbox" id="showSettlement" checked> 生活空間（住宅地）</label>
           <label><input type="checkbox" id="showForest"> 森林（緑）</label>
           <label><input type="checkbox" id="showBuilt"> 人工物・裸地</label>
           <label><input type="checkbox" id="showWater"> 水域</label>
@@ -224,6 +226,11 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <p class="note">0 なら陸域の開放地すべてを緩衝帯とみなします。値を入れると森林境界からその距離以内の開放地だけを緩衝帯とします。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
+        <p class="note"><b>生活空間（住宅地・集落）</b>は緩衝帯に含めません。下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
+        <div class="ctl"><label for="settleM">人工物の周囲 (m)</label><input type="range" id="settleM" min="0" max="150" step="5" value="0"><span class="val" id="settleMVal">なし</span></div>
+        <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
+        <p class="note" id="settleInfo"></p>
         <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>
         <div class="ctl"><label for="brushSize">ブラシ半径 (px)</label><input type="range" id="brushSize" min="2" max="60" step="1" value="12"><span class="val" id="brushSizeVal">12</span></div>
         <div class="btns"><button id="btnCorrClear">この時期の修正をクリア</button></div>
@@ -306,6 +313,18 @@ window.SIP_CONFIG = {
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 陸域の開放地すべて（edgeBandM: 0）、解析範囲 = 画像全体（aoi: []）
   buffer: { edgeBandM: 0, aoi: [] },
+  // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
+  // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
+  settlement: {
+    autoM: 0, // 0 = 描いた多角形だけを生活空間とする（岩場などの誤検出を巻き込まないため）
+    polygons: [
+      [{ x: 395, y: 360 }, { x: 480, y: 355 }, { x: 500, y: 290 }, { x: 560, y: 290 }, { x: 600, y: 370 }, { x: 600, y: 470 }, { x: 500, y: 470 }, { x: 470, y: 430 }, { x: 400, y: 400 }],
+      [{ x: 690, y: 400 }, { x: 760, y: 400 }, { x: 770, y: 460 }, { x: 690, y: 460 }],
+      [{ x: 495, y: 200 }, { x: 550, y: 200 }, { x: 555, y: 270 }, { x: 495, y: 270 }],
+      [{ x: 190, y: 620 }, { x: 265, y: 620 }, { x: 270, y: 690 }, { x: 185, y: 690 }],
+      [{ x: 850, y: 190 }, { x: 900, y: 190 }, { x: 900, y: 240 }, { x: 850, y: 240 }],
+    ],
+  },
   // 消失判定 = 最初の観測面積の 5 %、傾向モデル = 線形（推奨）
   simulation: { model: 'linear', thresholdPct: 5, startId: null, jitterM: 12, protectM: 0, seed: 1, manualRatePct: -2 },
 };
@@ -877,11 +896,12 @@ function classifyScene(feat, W, H, params, water, samples) {
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  *  - edgeBandPx … 0 より大きい場合、森林境界からこの距離以内の開放地だけを緩衝帯とみなす
+ *  - exclude    … 生活空間（住宅地）など、緩衝帯から除外する領域のマスク
  */
-function buildBuffer(cls, W, H, { aoi = null, correction = null, edgeBandPx = 0 } = {}) {
+function buildBuffer(cls, W, H, { aoi = null, correction = null, edgeBandPx = 0, exclude = null } = {}) {
   const n = W * H;
   const buf = new Uint8Array(n);
-  for (let i = 0; i < n; i++) buf[i] = cls.open[i];
+  for (let i = 0; i < n; i++) buf[i] = cls.open[i] && !(exclude && exclude[i]) ? 1 : 0;
   if (edgeBandPx > 0) {
     const d = distanceTransform(cls.forest, W, H);
     for (let i = 0; i < n; i++) if (buf[i] && d[i] > edgeBandPx) buf[i] = 0;
@@ -1079,6 +1099,9 @@ const DEFAULT_STYLE = {
   builtOpacity: 0.35,
   waterColor: [60, 120, 220],
   waterOpacity: 0.3,
+  settlementColor: [250, 250, 250],
+  settlementOpacity: 0.35,
+  showSettlement: true,
   showForest: false,
   showLost: true,
   showBuilt: false,
@@ -1100,14 +1123,17 @@ function composeOverlay(imgData, layers, style) {
   const cFor = pack(s.forestColor[0], s.forestColor[1], s.forestColor[2], Math.round(255 * s.forestOpacity));
   const cBuilt = pack(s.builtColor[0], s.builtColor[1], s.builtColor[2], Math.round(255 * s.builtOpacity));
   const cWater = pack(s.waterColor[0], s.waterColor[1], s.waterColor[2], Math.round(255 * s.waterOpacity));
+  const cSet = pack(s.settlementColor[0], s.settlementColor[1], s.settlementColor[2], Math.round(255 * s.settlementOpacity));
   const cDim = pack(20, 20, 20, 110);
-  const { buffer, lost, forest, built, water, aoi } = layers;
+  const { buffer, lost, forest, built, water, aoi, settlement } = layers;
+  const showSet = s.showSettlement && settlement;
   const showLost = s.showLost && lost, showForest = s.showForest && forest, showBuilt = s.showBuilt && built, showWater = s.showWater && water;
   const dim = s.dimOutsideAoi && aoi;
   for (let i = 0; i < n; i++) {
     let v = 0;
     if (buffer && buffer[i]) v = cBuf;
     else if (showLost && lost[i]) v = cLost;
+    else if (showSet && settlement[i]) v = cSet;
     else if (showWater && water[i]) v = cWater;
     else if (showBuilt && built[i]) v = cBuilt;
     else if (showForest && forest[i]) v = cFor;
@@ -1118,11 +1144,11 @@ function composeOverlay(imgData, layers, style) {
 }
 
 /** 多角形を画面座標系で描く（AOI の輪郭・頂点）。 */
-function drawPolygon(ctx, pts, toScreen, { closed = true, color = '#ffd400', vertexRadius = 4 } = {}) {
+function drawPolygon(ctx, pts, toScreen, { closed = true, color = '#ffd400', vertexRadius = 4, dash = [6, 4] } = {}) {
   if (!pts || !pts.length) return;
   ctx.save();
   ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.fillStyle = color;
-  ctx.setLineDash([6, 4]);
+  ctx.setLineDash(dash);
   ctx.beginPath();
   pts.forEach((p, i) => { const q = toScreen(p.x, p.y); if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y); });
   if (closed && pts.length > 2) ctx.closePath();
@@ -1317,6 +1343,8 @@ const state = {
   W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
   scenes: [], water: null,
   aoiPoints: [], aoiMask: null, aoiDrawing: false,
+  settlement: { autoM: CFG.settlement?.autoM ?? 30, polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
+  settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0 },
   sim: { ...CFG.simulation },
@@ -1362,7 +1390,7 @@ function serialize() {
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
     display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, aoi: state.aoiPoints }, sim: state.sim,
-    samples: state.samples, coastBandM: state.coastBandM,
+    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
   };
 }
 let saveTimer = null;
@@ -1377,6 +1405,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.scenes) {
     for (const ss of saved.scenes) {
       const s = state.scenes.find(x => x.id === ss.id);
@@ -1428,13 +1457,27 @@ function recomputeScene(s) {
 }
 function recomputeBuffer(s) {
   const edgeBandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
-  s.buffer = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, edgeBandPx });
+  s.settlement = settlementMask(s);
+  s.buffer = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, edgeBandPx, exclude: s.settlement });
   s.stats = {
+    settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
     land: countMask(s.cls.land, state.aoiMask) * state.pxAreaHa,
     buffer: countMask(s.buffer) * state.pxAreaHa,
     forest: countMask(s.cls.forest, state.aoiMask) * state.pxAreaHa,
     built: countMask(s.cls.built, state.aoiMask) * state.pxAreaHa,
   };
+}
+/** 生活空間マスク = 描いた多角形 ∪ 人工物の周囲 autoM (m)。 */
+function settlementMask(s) {
+  const n = state.W * state.H;
+  if (!state.settlePolyMask) {
+    state.settlePolyMask = new Uint8Array(n);
+    for (const poly of state.settlement.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.settlePolyMask[i] = 1; }
+  }
+  const out = Uint8Array.from(state.settlePolyMask);
+  const r = Math.round((state.settlement.autoM || 0) / state.mPerPx);
+  if (r > 0 && s.cls?.built) { const d = dilate(s.cls.built, state.W, state.H, r); for (let i = 0; i < n; i++) if (d[i] && s.cls.land[i]) out[i] = 1; }
+  return out;
 }
 function sortedScenes() { return state.scenes.filter(s => s.buffer).slice().sort((a, b) => a.year - b.year); }
 
@@ -1535,8 +1578,8 @@ function buildOverlay(frame) {
   }
   const d = state.display;
   composeOverlay(overlayData, {
-    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask,
-  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater });
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement,
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false });
   overlayCtx.putImageData(overlayData, 0, 0);
   return overlayCanvas;
 }
@@ -1584,6 +1627,8 @@ function render() {
   if (state.display.showOverlay !== false) vctx.drawImage(buildOverlay(frame), 0, 0);
   vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
+  if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
+  if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
   updateHud(frame);
   chart.setCurrentYear(state.year);
@@ -1682,6 +1727,7 @@ function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
   bindCheck('showForest', () => d.showForest, (v) => { d.showForest = v; save(); syncLegend(); requestRender(); });
   bindCheck('showBuilt', () => d.showBuilt, (v) => { d.showBuilt = v; save(); syncLegend(); requestRender(); });
   bindCheck('showWater', () => d.showWater, (v) => { d.showWater = v; save(); syncLegend(); requestRender(); });
@@ -1693,7 +1739,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
@@ -1755,7 +1801,7 @@ function setupSampleTools() {
     state.sampleTool.mode = state.sampleTool.mode === cls ? null : cls;
     tools.querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.cls === state.sampleTool.mode));
     viewer.classList.toggle('drawing', !!state.sampleTool.mode);
-    if (state.sampleTool.mode) { state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('brushMode').value = '0'; state.brush.mode = 0; viewer.classList.remove('brush'); }
+    if (state.sampleTool.mode) { if (state.settleDrawing) finishSettle(); state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('brushMode').value = '0'; state.brush.mode = 0; viewer.classList.remove('brush'); }
     requestRender();
   }));
   bindRange('sampleRadius', 'sampleRadiusVal', () => state.sampleTool.radius, (v) => { state.sampleTool.radius = v; }, (v) => v.toFixed(0));
@@ -1796,6 +1842,16 @@ function setupBufferPanel() {
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '全域'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
   $('btnAoiDone').addEventListener('click', finishAoi);
+  bindRange('settleM', 'settleMVal', () => state.settlement.autoM, (v) => { state.settlement.autoM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし'));
+  $('btnSettle').addEventListener('click', () => {
+    state.settleDrawing = !state.settleDrawing; state.settlePoints = [];
+    if (state.settleDrawing && state.aoiDrawing) finishAoi();
+    $('btnSettle').classList.toggle('active', state.settleDrawing); $('btnSettleDone').hidden = !state.settleDrawing; viewer.classList.toggle('drawing', state.settleDrawing); requestRender();
+  });
+  $('btnSettleDone').addEventListener('click', finishSettle);
+  $('btnSettleUndo').addEventListener('click', () => { state.settlement.polygons.pop(); settlementChanged(); });
+  $('btnSettleClear').addEventListener('click', () => { if (!state.settlement.polygons.length || confirm('描いた生活空間の範囲をすべて削除しますか？')) { state.settlement.polygons = []; settlementChanged(); } });
+  updateSettleInfo();
   $('btnAoiClear').addEventListener('click', () => { state.aoiPoints = []; state.aoiMask = null; state.aoiDrawing = false; $('btnAoi').classList.remove('active'); viewer.classList.remove('drawing'); save(); recomputeAllBuffers(); });
   const bm = $('brushMode'); bm.addEventListener('change', () => { state.brush.mode = Number(bm.value); viewer.classList.toggle('brush', state.brush.mode !== 0); });
   bindRange('brushSize', 'brushSizeVal', () => state.brush.size, (v) => { state.brush.size = v; }, (v) => v.toFixed(0));
@@ -1804,6 +1860,15 @@ function setupBufferPanel() {
 let bufferTimer = null;
 function scheduleBufferRecompute() { clearTimeout(bufferTimer); bufferTimer = setTimeout(recomputeAllBuffers, 120); }
 function recomputeAllBuffers() { for (const s of state.scenes) if (s.cls) recomputeBuffer(s); rebuildTimeline(); requestRender(); }
+function finishSettle() {
+  state.settleDrawing = false; $('btnSettle').classList.remove('active'); $('btnSettleDone').hidden = true; viewer.classList.remove('drawing');
+  const pts = state.settlePoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
+  state.settlePoints = [];
+  if (pts.length >= 3) state.settlement.polygons.push(pts);
+  settlementChanged();
+}
+function settlementChanged() { state.settlePolyMask = null; save(); updateSettleInfo(); recomputeAllBuffers(); }
+function updateSettleInfo() { $('settleInfo').textContent = `描いた範囲: ${state.settlement.polygons.length} か所`; }
 function finishAoi() {
   state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
@@ -1851,7 +1916,7 @@ function updateStats() {
   for (const s of tl.scenes) {
     const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : null;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
+    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${s.stats.settlement.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
     tb.appendChild(tr); prev = s;
   }
   $('scaleNote').textContent = `縮尺 ${state.mPerPx.toFixed(3)} m/px（スケールバー ${CFG.scale?.barMeters} m = ${CFG.scale?.barPx} px）、1 画素 = ${(state.pxAreaHa * 10000).toFixed(2)} m²、陸域 ${tl.scenes[0].stats.land.toFixed(1)} ha${state.aoiMask ? '（解析範囲内）' : ''}`;
@@ -1881,7 +1946,7 @@ function setupViewer() {
       return;
     }
     lastX = e.clientX; lastY = e.clientY; moved = false;
-    if (state.aoiDrawing || state.sampleTool.mode) return;
+    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
@@ -1915,10 +1980,11 @@ function setupViewer() {
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
     if (state.sampleTool.mode) { sampleClick(p); return; }
+    if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
     if (!state.aoiDrawing) return;
     state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();
   });
-  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } });
+  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } else if (state.settleDrawing) { e.preventDefault(); finishSettle(); } });
   viewer.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = viewer.getBoundingClientRect();
@@ -1929,7 +1995,7 @@ function setupViewer() {
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
-    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
+    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
   });
   new ResizeObserver(() => { fitView(); chart.draw(); }).observe($('viewerWrap'));
 }
@@ -1945,7 +2011,7 @@ function paintAt(e) {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     if ((x - p.x) ** 2 + (y - p.y) ** 2 > rad * rad) continue;
     const i = y * state.W + x; s.correction[i] = v;
-    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) ? 1 : 0) : 0;
+    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) && !(s.settlement && s.settlement[i]) ? 1 : 0) : 0;
   }
   requestRender();
 }
@@ -1962,7 +2028,7 @@ function setupIO() {
   $('btnJson').addEventListener('click', () => download(new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' }), 'forest-buffer-settings.json'));
   $('jsonInput').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; save(); recomputeAll(); }
+    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; state.settlePolyMask = null; updateSettleInfo(); save(); recomputeAll(); }
     catch (err) { alert('設定を読み込めませんでした: ' + err.message); }
     e.target.value = '';
   });
@@ -2017,19 +2083,19 @@ function exportPng() {
 }
 function exportCsv() {
   const tl = state.timeline; if (!tl) return;
-  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,人工物_ha,増減_ha_per_年'];
+  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,人工物_ha,生活空間_ha,増減_ha_per_年'];
   let prev = null;
   for (const s of tl.scenes) {
     const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : '';
-    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.built.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
+    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.built.toFixed(2), s.stats.settlement.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
     prev = s;
   }
   if (tl.trend.ok) {
     for (let y = Math.ceil(tl.start.year / 5) * 5; y <= tl.xMax; y += 5) {
       if (y <= tl.start.year) continue;
-      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
+      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
     }
-    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', ''].join(','));
+    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', '', ''].join(','));
   }
   download(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }), 'forest-buffer-areas.csv');
 }
