@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>珠洲市真浦町 撮影位置マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --panel: #ffffff; --ink: #1d2126; --muted: #6b7280; --line: #e3e6ea; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; font: 14px/1.6 -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: var(--ink); }
+  #map { position: absolute; inset: 0; }
+  .panel {
+    position: absolute; top: 12px; left: 12px; z-index: 1000; width: 268px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.14); padding: 14px 16px;
+  }
+  .panel h1 { margin: 0 0 2px; font-size: 15px; letter-spacing: .01em; }
+  .panel .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .stat { display: flex; justify-content: space-between; font-size: 12.5px; padding: 3px 0; }
+  .stat span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .sect { border-top: 1px solid var(--line); margin-top: 11px; padding-top: 11px; }
+  label.ck { display: flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 2px 0; cursor: pointer; }
+  .scale { display: flex; height: 9px; border-radius: 5px; overflow: hidden; margin: 7px 0 3px; }
+  .scale i { flex: 1; }
+  .scale-lbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .leaflet-popup-content { margin: 11px 13px; font: 13px/1.65 -apple-system, "Hiragino Sans", sans-serif; }
+  .leaflet-popup-content b { font-size: 13.5px; }
+  .leaflet-popup-content .k { color: var(--muted); display: inline-block; width: 4.6em; }
+  @media (max-width: 600px) { .panel { width: calc(100% - 24px); } }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>珠洲市真浦町 撮影位置</h1>
+  <div class="sub" id="sub"></div>
+  <div class="stat"><span>写真</span><span id="nPhoto"></span></div>
+  <div class="stat"><span>動画</span><span id="nVideo"></span></div>
+  <div class="stat"><span>標高</span><span id="alt"></span></div>
+  <div class="sect">
+    <label class="ck"><input type="checkbox" id="tTrack" checked> 移動経路を表示</label>
+    <label class="ck"><input type="checkbox" id="tNum"> 撮影順の番号を表示</label>
+  </div>
+  <div class="sect">
+    <div style="font-size:12.5px;">標高による色分け</div>
+    <div class="scale" id="scale"></div>
+    <div class="scale-lbl"><span id="aMin"></span><span id="aMax"></span></div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PTS = [{"name": "IMG_1508.JPG", "lat": 37.47219444, "lon": 137.09399444, "alt": 11.24, "time": "2026:09:23 06:56:04", "video": false}, {"name": "IMG_1509.JPG", "lat": 37.47257222, "lon": 137.094375, "alt": 15.32, "time": "2026:09:23 06:56:53", "video": false}, {"name": "IMG_1510.JPG", "lat": 37.47247222, "lon": 137.09458889, "alt": 16.7, "time": "2026:09:23 06:57:17", "video": false}, {"name": "IMG_1511.JPG", "lat": 37.47293889, "lon": 137.09649722, "alt": 36.91, "time": "2026:09:23 07:00:35", "video": false}, {"name": "IMG_1512.JPG", "lat": 37.47299444, "lon": 137.09649722, "alt": 37.66, "time": "2026:09:23 07:00:50", "video": false}, {"name": "IMG_1513.MOV", "lat": 37.4733, "lon": 137.0967, "alt": 37.47, "time": "2026:09:23 07:01:44", "video": true}, {"name": "IMG_1514.JPG", "lat": 37.47326389, "lon": 137.09690833, "alt": 43.98, "time": "2026:09:23 07:02:38", "video": false}, {"name": "IMG_1515.JPG", "lat": 37.47343056, "lon": 137.09774722, "alt": 43.04, "time": "2026:09:23 07:03:11", "video": false}, {"name": "IMG_1516.JPG", "lat": 37.47342222, "lon": 137.097825, "alt": 48.94, "time": "2026:09:23 07:03:18", "video": false}, {"name": "IMG_1517.JPG", "lat": 37.47343889, "lon": 137.09783889, "alt": 48.39, "time": "2026:09:23 07:03:27", "video": false}, {"name": "IMG_1518.JPG", "lat": 37.47306389, "lon": 137.09821944, "alt": 57.12, "time": "2026:09:23 07:04:37", "video": false}, {"name": "IMG_1519.JPG", "lat": 37.47354167, "lon": 137.09951667, "alt": 73.99, "time": "2026:09:23 07:06:44", "video": false}, {"name": "IMG_1520.JPG", "lat": 37.47344167, "lon": 137.09953333, "alt": 75.53, "time": "2026:09:23 07:06:52", "video": false}, {"name": "IMG_1521.JPG", "lat": 37.47324444, "lon": 137.09945556, "alt": 74.29, "time": "2026:09:23 07:07:20", "video": false}, {"name": "IMG_1522.JPG", "lat": 37.47323611, "lon": 137.09944167, "alt": 74.79, "time": "2026:09:23 07:07:25", "video": false}, {"name": "IMG_1523.JPG", "lat": 37.47318889, "lon": 137.09950278, "alt": 75.47, "time": "2026:09:23 07:07:39", "video": false}, {"name": "IMG_1524.JPG", "lat": 37.47321389, "lon": 137.099625, "alt": 76.24, "time": "2026:09:23 07:07:56", "video": false}, {"name": "IMG_1525.JPG", "lat": 37.47321389, "lon": 137.099625, "alt": 76.14, "time": "2026:09:23 07:08:06", "video": false}, {"name": "IMG_1526.JPG", "lat": 37.47319722, "lon": 137.09959444, "alt": 75.31, "time": "2026:09:23 07:08:15", "video": false}, {"name": "IMG_1527.JPG", "lat": 37.47329722, "lon": 137.09976111, "alt": 76.66, "time": "2026:09:23 07:08:40", "video": false}, {"name": "IMG_1528.JPG", "lat": 37.47335, "lon": 137.09983889, "alt": 77.84, "time": "2026:09:23 07:08:50", "video": false}, {"name": "IMG_1529.JPG", "lat": 37.47343611, "lon": 137.10014444, "alt": 79.4, "time": "2026:09:23 07:09:25", "video": false}, {"name": "IMG_1530.JPG", "lat": 37.47337778, "lon": 137.10014444, "alt": 79.42, "time": "2026:09:23 07:09:36", "video": false}, {"name": "IMG_1531.JPG", "lat": 37.47327778, "lon": 137.10015833, "alt": 79.15, "time": "2026:09:23 07:09:54", "video": false}, {"name": "IMG_1532.JPG", "lat": 37.47321667, "lon": 137.10018889, "alt": 81.55, "time": "2026:09:23 07:10:21", "video": false}, {"name": "IMG_1533.MOV", "lat": 37.4732, "lon": 137.1002, "alt": 81.24, "time": "2026:09:23 07:10:27", "video": true}, {"name": "IMG_1534.JPG", "lat": 37.47286667, "lon": 137.10066111, "alt": 89.22, "time": "2026:09:23 07:12:22", "video": false}, {"name": "IMG_1535.JPG", "lat": 37.47280833, "lon": 137.10083056, "alt": 92.16, "time": "2026:09:23 07:12:39", "video": false}, {"name": "IMG_1536.JPG", "lat": 37.47267222, "lon": 137.10115, "alt": 96.15, "time": "2026:09:23 07:13:07", "video": false}, {"name": "IMG_1537.JPG", "lat": 37.47267222, "lon": 137.10115, "alt": 96.27, "time": "2026:09:23 07:13:10", "video": false}, {"name": "IMG_1538.JPG", "lat": 37.47267222, "lon": 137.10115, "alt": 96.61, "time": "2026:09:23 07:13:13", "video": false}, {"name": "IMG_1539.JPG", "lat": 37.472675, "lon": 137.10115, "alt": 96.94, "time": "2026:09:23 07:13:17", "video": false}, {"name": "IMG_1540.JPG", "lat": 37.47267222, "lon": 137.10115, "alt": 96.78, "time": "2026:09:23 07:13:22", "video": false}, {"name": "IMG_1541.JPG", "lat": 37.47256944, "lon": 137.10141111, "alt": 97.76, "time": "2026:09:23 07:14:05", "video": false}, {"name": "IMG_1542.JPG", "lat": 37.47250556, "lon": 137.10151667, "alt": 100.8, "time": "2026:09:23 07:14:21", "video": false}, {"name": "IMG_1543.JPG", "lat": 37.472325, "lon": 137.10188333, "alt": 107.62, "time": "2026:09:23 07:15:00", "video": false}, {"name": "IMG_1544.JPG", "lat": 37.47233056, "lon": 137.10186667, "alt": 108.29, "time": "2026:09:23 07:15:06", "video": false}, {"name": "IMG_1545.MOV", "lat": 37.4727, "lon": 137.1012, "alt": 104.62, "time": "2026:09:23 07:16:01", "video": true}, {"name": "IMG_1546.JPG", "lat": 37.47282222, "lon": 137.100525, "alt": 89.57, "time": "2026:09:23 07:16:56", "video": false}, {"name": "IMG_1547.JPG", "lat": 37.47324444, "lon": 137.10015833, "alt": 80.68, "time": "2026:09:23 07:18:21", "video": false}, {"name": "IMG_1548.JPG", "lat": 37.47345556, "lon": 137.09996111, "alt": 78.58, "time": "2026:09:23 07:18:53", "video": false}, {"name": "IMG_1549.JPG", "lat": 37.47344722, "lon": 137.09996111, "alt": 78.82, "time": "2026:09:23 07:18:56", "video": false}, {"name": "IMG_1550.JPG", "lat": 37.47330278, "lon": 137.09976111, "alt": 76.27, "time": "2026:09:23 07:19:20", "video": false}, {"name": "IMG_1551.JPG", "lat": 37.47330278, "lon": 137.09976111, "alt": 76.77, "time": "2026:09:23 07:19:25", "video": false}, {"name": "IMG_1552.JPG", "lat": 37.47319444, "lon": 137.09948611, "alt": 74.37, "time": "2026:09:23 07:19:51", "video": false}, {"name": "IMG_1553.JPG", "lat": 37.47388056, "lon": 137.09963889, "alt": 75.93, "time": "2026:09:23 07:21:00", "video": false}, {"name": "IMG_1554.JPG", "lat": 37.47343056, "lon": 137.09873889, "alt": 70.31, "time": "2026:09:23 07:22:32", "video": false}, {"name": "IMG_1555.JPG", "lat": 37.47342778, "lon": 137.09873889, "alt": 69.5, "time": "2026:09:23 07:22:39", "video": false}, {"name": "IMG_1556.JPG", "lat": 37.47343056, "lon": 137.098725, "alt": 69.29, "time": "2026:09:23 07:22:44", "video": false}, {"name": "IMG_1557.JPG", "lat": 37.47341944, "lon": 137.09870833, "alt": 68.8, "time": "2026:09:23 07:22:53", "video": false}, {"name": "IMG_1558.JPG", "lat": 37.47285, "lon": 137.09648056, "alt": 35.95, "time": "2026:09:23 07:26:25", "video": false}, {"name": "IMG_1559.JPG", "lat": 37.47285, "lon": 137.09648056, "alt": 35.89, "time": "2026:09:23 07:26:29", "video": false}, {"name": "IMG_1560.JPG", "lat": 37.47282222, "lon": 137.09646667, "alt": 35.16, "time": "2026:09:23 07:26:41", "video": false}, {"name": "IMG_1561.MOV", "lat": 37.4728, "lon": 137.0965, "alt": 35.46, "time": "2026:09:23 07:26:59", "video": true}, {"name": "IMG_1562.JPG", "lat": 37.47246389, "lon": 137.09599167, "alt": 34.8, "time": "2026:09:23 07:27:57", "video": false}, {"name": "IMG_1563.JPG", "lat": 37.47246111, "lon": 137.09599167, "alt": 34.52, "time": "2026:09:23 07:28:01", "video": false}, {"name": "IMG_1564.JPG", "lat": 37.47248611, "lon": 137.09591667, "alt": 32.94, "time": "2026:09:23 07:28:58", "video": false}, {"name": "IMG_1565.JPG", "lat": 37.47243611, "lon": 137.09587222, "alt": 33.82, "time": "2026:09:23 07:29:02", "video": false}, {"name": "IMG_1566.JPG", "lat": 37.47229444, "lon": 137.09571944, "alt": 32.3, "time": "2026:09:23 07:29:29", "video": false}, {"name": "IMG_1567.JPG", "lat": 37.47227222, "lon": 137.09567222, "alt": 33.1, "time": "2026:09:23 07:29:37", "video": false}, {"name": "IMG_1568.JPG", "lat": 37.47226389, "lon": 137.09565833, "alt": 32.89, "time": "2026:09:23 07:29:52", "video": false}, {"name": "IMG_1569.JPG", "lat": 37.47223333, "lon": 137.09559722, "alt": 33.81, "time": "2026:09:23 07:30:05", "video": false}, {"name": "IMG_1570.JPG", "lat": 37.47056389, "lon": 137.0941, "alt": 54.67, "time": "2026:09:23 07:35:18", "video": false}, {"name": "IMG_1571.JPG", "lat": 37.47084722, "lon": 137.09512222, "alt": 71.1, "time": "2026:09:23 07:37:09", "video": false}, {"name": "IMG_1572.JPG", "lat": 37.47084444, "lon": 137.09512222, "alt": 70.44, "time": "2026:09:23 07:37:12", "video": false}, {"name": "IMG_1573.JPG", "lat": 37.47084444, "lon": 137.09512222, "alt": 70.18, "time": "2026:09:23 07:37:16", "video": false}, {"name": "IMG_1574.JPG", "lat": 37.46987222, "lon": 137.09606944, "alt": 92.64, "time": "2026:09:23 07:40:05", "video": false}, {"name": "IMG_1575.JPG", "lat": 37.46987222, "lon": 137.09606944, "alt": 92.75, "time": "2026:09:23 07:40:08", "video": false}, {"name": "IMG_1576.JPG", "lat": 37.46986111, "lon": 137.09548889, "alt": 85.63, "time": "2026:09:23 07:41:02", "video": false}, {"name": "IMG_1577.JPG", "lat": 37.46988333, "lon": 137.09545833, "alt": 89.67, "time": "2026:09:23 07:41:07", "video": false}, {"name": "IMG_1578.JPG", "lat": 37.469975, "lon": 137.09535278, "alt": 88.84, "time": "2026:09:23 07:41:35", "video": false}, {"name": "IMG_1579.JPG", "lat": 37.47018056, "lon": 137.09526111, "alt": 90.4, "time": "2026:09:23 07:41:53", "video": false}, {"name": "IMG_1580.JPG", "lat": 37.47021111, "lon": 137.09532222, "alt": 88.62, "time": "2026:09:23 07:42:02", "video": false}, {"name": "IMG_1581.JPG", "lat": 37.47001389, "lon": 137.09535278, "alt": 91.52, "time": "2026:09:23 07:42:27", "video": false}, {"name": "IMG_1582.JPG", "lat": 37.46943333, "lon": 137.09485, "alt": 85.42, "time": "2026:09:23 07:43:52", "video": false}, {"name": "IMG_1583.JPG", "lat": 37.469375, "lon": 137.09483333, "alt": 85.13, "time": "2026:09:23 07:44:00", "video": false}, {"name": "IMG_1584.JPG", "lat": 37.46953611, "lon": 137.09463611, "alt": 80.42, "time": "2026:09:23 07:44:45", "video": false}, {"name": "IMG_1585.JPG", "lat": 37.46950833, "lon": 137.09440556, "alt": 83.07, "time": "2026:09:23 07:44:55", "video": false}, {"name": "IMG_1586.JPG", "lat": 37.47015, "lon": 137.09748889, "alt": 105.47, "time": "2026:09:23 07:49:08", "video": false}, {"name": "IMG_1587.JPG", "lat": 37.47015833, "lon": 137.09791667, "alt": 110.12, "time": "2026:09:23 07:49:36", "video": false}, {"name": "IMG_1588.JPG", "lat": 37.47016111, "lon": 137.09802222, "alt": 113.14, "time": "2026:09:23 07:49:44", "video": false}, {"name": "IMG_1589.MOV", "lat": 37.4702, "lon": 137.098, "alt": 114.52, "time": "2026:09:23 07:49:54", "video": true}, {"name": "IMG_1590.MOV", "lat": 37.4701, "lon": 137.0981, "alt": 114.17, "time": "2026:09:23 07:50:35", "video": true}, {"name": "IMG_1591.JPG", "lat": 37.47017222, "lon": 137.097825, "alt": 111.21, "time": "2026:09:23 07:51:49", "video": false}, {"name": "IMG_1593.JPG", "lat": 37.47016944, "lon": 137.097825, "alt": 111.54, "time": "2026:09:23 07:51:55", "video": false}, {"name": "IMG_1594.JPG", "lat": 37.47017222, "lon": 137.09783889, "alt": 111.66, "time": "2026:09:23 07:51:57", "video": false}, {"name": "IMG_1596.JPG", "lat": 37.46988889, "lon": 137.09620556, "alt": 96.01, "time": "2026:09:23 07:54:35", "video": false}, {"name": "IMG_1597.JPG", "lat": 37.47283611, "lon": 137.09301667, "alt": 7.98, "time": "2026:09:23 07:59:38", "video": false}, {"name": "IMG_1598.JPG", "lat": 37.47215556, "lon": 137.09217778, "alt": 4.9, "time": "2026:09:23 08:08:39", "video": false}, {"name": "IMG_1599.JPG", "lat": 37.47202222, "lon": 137.09388611, "alt": 10.16, "time": "2026:09:23 08:08:41", "video": false}, {"name": "IMG_1600.JPG", "lat": 37.47108056, "lon": 137.09245278, "alt": 14.25, "time": "2026:09:23 08:11:24", "video": false}, {"name": "IMG_1601.JPG", "lat": 37.47280556, "lon": 137.09297222, "alt": 7.98, "time": "2026:09:23 08:50:54", "video": false}];
+
+const alts = PTS.map(p => p.alt).filter(a => a !== null);
+const aMin = Math.min(...alts), aMax = Math.max(...alts);
+
+// 低地=青緑 → 高地=橙赤 の連続スケール
+function colorFor(a) {
+  if (a === null) return '#8b93a1';
+  const t = (a - aMin) / (aMax - aMin);
+  const stops = [[19,78,120],[36,140,150],[128,178,110],[214,174,84],[196,94,58]];
+  const x = t * (stops.length - 1), i = Math.min(Math.floor(x), stops.length - 2), f = x - i;
+  const c = stops[i].map((v, j) => Math.round(v + (stops[i+1][j] - v) * f));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+const map = L.map('map', { zoomControl: true });
+const gsi = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+  maxZoom: 18, attribution: '地理院タイル' });
+const gsiPhoto = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {
+  maxZoom: 18, attribution: '地理院タイル（全国最新写真）' });
+const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
+gsi.addTo(map);
+L.control.layers({ '地理院 淡色地図': gsi, '航空写真': gsiPhoto, 'OpenStreetMap': osm }).addTo(map);
+
+const track = L.polyline(PTS.map(p => [p.lat, p.lon]),
+  { color: '#3c6fd0', weight: 2.5, opacity: .75 }).addTo(map);
+
+const numLayer = L.layerGroup();
+PTS.forEach((p, i) => {
+  const m = L.circleMarker([p.lat, p.lon], {
+    radius: p.video ? 8 : 6,
+    color: '#fff', weight: 1.6,
+    fillColor: colorFor(p.alt), fillOpacity: .95
+  }).addTo(map);
+  m.bindPopup(
+    `<b>${p.name}</b>${p.video ? ' <span style="color:#6b7280">（動画）</span>' : ''}<br>` +
+    `<span class="k">撮影日時</span>${p.time}<br>` +
+    `<span class="k">緯度経度</span>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}<br>` +
+    `<span class="k">標高</span>${p.alt === null ? '-' : p.alt.toFixed(1) + ' m'}<br>` +
+    `<span class="k">撮影順</span>${i + 1} / ${PTS.length}<br>` +
+    `<a href="https://www.google.com/maps?q=${p.lat},${p.lon}" target="_blank" rel="noopener">Google マップで開く</a>`
+  );
+  m.bindTooltip(p.name, { direction: 'top', offset: [0, -6] });
+  L.marker([p.lat, p.lon], { interactive: false, icon: L.divIcon({
+    className: '', html: `<div style="font:600 10px/1 -apple-system,sans-serif;color:#1d2126;
+      background:rgba(255,255,255,.82);border-radius:3px;padding:2px 3px;white-space:nowrap">${i+1}</div>`,
+    iconAnchor: [-6, 16] }) }).addTo(numLayer);
+});
+
+function fit() {
+  const wide = window.innerWidth > 600;
+  map.fitBounds(track.getBounds(), {
+    paddingTopLeft: wide ? [300, 40] : [40, 40],
+    paddingBottomRight: wide ? [60, 40] : [40, 300]
+  });
+}
+fit();
+
+document.getElementById('sub').textContent = PTS[0].time.slice(0, 10).replace(/:/g, '/') + ' 撮影 ・ ' + PTS.length + ' 地点';
+document.getElementById('nPhoto').textContent = PTS.filter(p => !p.video).length + ' 件';
+document.getElementById('nVideo').textContent = PTS.filter(p => p.video).length + ' 件';
+document.getElementById('alt').textContent = aMin.toFixed(0) + ' – ' + aMax.toFixed(0) + ' m';
+document.getElementById('aMin').textContent = aMin.toFixed(0) + ' m';
+document.getElementById('aMax').textContent = aMax.toFixed(0) + ' m';
+document.getElementById('scale').innerHTML =
+  Array.from({ length: 40 }, (_, i) => `<i style="background:${colorFor(aMin + (aMax - aMin) * i / 39)}"></i>`).join('');
+
+document.getElementById('tTrack').onchange = e => e.target.checked ? track.addTo(map) : map.removeLayer(track);
+document.getElementById('tNum').onchange = e => e.target.checked ? numLayer.addTo(map) : map.removeLayer(numLayer);
+</script>
+</body>
+</html>
