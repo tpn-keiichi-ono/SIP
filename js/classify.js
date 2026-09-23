@@ -1,4 +1,4 @@
-// classify.js — 空中写真 1 枚を「水域 / 森林 / 開放地（＝森林緩衝帯の候補） / 人工物・裸地」に分類する。
+// classify.js — 空中写真 1 枚を「水域 / 森林（密） / 疎林・草地（間伐地＝緩衝帯の候補） / 田畑（開放地） / 人工物・裸地」に分類する。
 //
 // 方式: 教師サンプル付きの単純ベイズ（対角ガウス）分類。
 //   画素ごとの特徴量 = 平滑化した輝度・彩度・緑らしさ・局所テクスチャ（輝度の局所標準偏差）
@@ -9,7 +9,7 @@
 
 import { boxMean, dilate, morphOpen, morphClose, removeSmallRegions, keepRegionsTouchingBorder, connectedComponents, distanceTransform, otsu } from './morph.js';
 
-export const CLASSES = ['forest', 'open', 'built'];
+export const CLASSES = ['forest', 'sparse', 'open', 'built'];
 
 /** RGBA 画素配列から生の特徴量を求める（時期ごとに 1 回だけ計算してキャッシュする）。 */
 export function computeFeatures(rgba, W, H) {
@@ -231,6 +231,7 @@ export function classifyScene(feat, W, H, params, water, samples) {
   const sl = F[0], sc = F[1];
   const model = {
     forest: trainClass(F, W, H, samples?.forest, p.varFloor),
+    sparse: trainClass(F, W, H, samples?.sparse, p.varFloor),
     open: trainClass(F, W, H, samples?.open, p.varFloor),
     built: trainClass(F, W, H, samples?.built, p.varFloor),
   };
@@ -241,15 +242,18 @@ export function classifyScene(feat, W, H, params, water, samples) {
 
   let forest = new Uint8Array(n);
   const built = new Uint8Array(n);
+  let sparse = new Uint8Array(n);
   const builtRule = (i) => sl[i] > p.builtMin && sc[i] < p.builtChromaMax;
   for (let i = 0; i < n; i++) {
     if (!land[i]) continue;
     if (useGauss) {
       const lf = logLik(F, i, model.forest), lo = logLik(F, i, model.open) + p.bias;
+      const ls = model.sparse ? logLik(F, i, model.sparse) + p.bias * 0.5 : -Infinity;
       let lb = -Infinity;
       if (model.built) lb = logLik(F, i, model.built);
       else if (builtRule(i)) lb = Infinity;
-      if (lb > lf && lb > lo) built[i] = 1;
+      if (lb > lf && lb > lo && lb > ls) built[i] = 1;
+      else if (ls > lf && ls >= lo) sparse[i] = 1;
       else if (lf >= lo) forest[i] = 1;
     } else {
       if (sl[i] < forestMax - p.bias * 5) forest[i] = 1;
@@ -259,31 +263,44 @@ export function classifyScene(feat, W, H, params, water, samples) {
   if (p.clean > 0) {
     forest = morphOpen(morphClose(forest, W, H, p.clean), W, H, p.clean);
     for (let i = 0; i < n; i++) if (!land[i]) forest[i] = 0;
+    for (let i = 0; i < n; i++) if (forest[i]) sparse[i] = 0;
   }
   let open = new Uint8Array(n);
-  for (let i = 0; i < n; i++) open[i] = land[i] && !forest[i] && !built[i] ? 1 : 0;
+  for (let i = 0; i < n; i++) open[i] = land[i] && !forest[i] && !built[i] && !sparse[i] ? 1 : 0;
   if (p.minRegionPx > 1) {
     const cleaned = removeSmallRegions(open, W, H, p.minRegionPx, 8);
-    for (let i = 0; i < n; i++) if (open[i] && !cleaned[i]) forest[i] = 1; // 小さな開放地は森林に吸収
+    for (let i = 0; i < n; i++) if (open[i] && !cleaned[i]) sparse[i] = 1; // 小さな田畑の断片は疎林・草地に吸収
     open = cleaned;
+    const cleanedS = removeSmallRegions(sparse, W, H, Math.max(1, p.minRegionPx >> 1), 8);
+    for (let i = 0; i < n; i++) if (sparse[i] && !cleanedS[i]) forest[i] = 1; // 小さな疎林の断片は森林に吸収
+    sparse = cleanedS;
   }
-  return { forest, open, built, land, coast, model, useGauss, resolved: { ...p, forestMax } };
+  return { forest, sparse, open, built, land, coast, model, useGauss, hasSparse: !!model.sparse, resolved: { ...p, forestMax } };
 }
 
 /**
  * 分類結果から「森林緩衝帯」マスクを作る。
+ * 生活空間 H = 住宅地（多角形）∪ 田畑 ∪ 人工物。その周囲 bandPx の帯（森林側）のうち、密な森林でない部分
+ * （疎林・草地）が「機能している緩衝帯」。帯の中で森林になった部分は緩衝帯が失われた場所。
+ *  - human      … 生活空間マスク（住宅地多角形など。田畑・人工物は cls から加える）
+ *  - bandPx     … 生活空間からの帯の幅（画素）。0 なら帯で限定せず、疎林・草地すべてを緩衝帯とする
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
- *  - edgeBandPx … 0 より大きい場合、森林境界からこの距離以内の開放地だけを緩衝帯とみなす
- *  - exclude    … 生活空間（住宅地）など、緩衝帯から除外する領域のマスク
+ * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-export function buildBuffer(cls, W, H, { aoi = null, correction = null, edgeBandPx = 0, exclude = null } = {}) {
+export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null } = {}) {
   const n = W * H;
+  const humanAll = new Uint8Array(n);
+  for (let i = 0; i < n; i++) humanAll[i] = cls.land[i] && ((human && human[i]) || cls.open[i] || cls.built[i]) ? 1 : 0;
   const buf = new Uint8Array(n);
-  for (let i = 0; i < n; i++) buf[i] = cls.open[i] && !(exclude && exclude[i]) ? 1 : 0;
-  if (edgeBandPx > 0) {
-    const d = distanceTransform(cls.forest, W, H);
-    for (let i = 0; i < n; i++) if (buf[i] && d[i] > edgeBandPx) buf[i] = 0;
+  let band = null;
+  if (bandPx > 0) {
+    const d = distanceTransform(humanAll, W, H);
+    band = new Uint8Array(n);
+    for (let i = 0; i < n; i++) band[i] = cls.land[i] && !humanAll[i] && d[i] <= bandPx ? 1 : 0;
+    for (let i = 0; i < n; i++) buf[i] = band[i] && cls.sparse[i] ? 1 : 0;
+  } else {
+    for (let i = 0; i < n; i++) buf[i] = cls.sparse[i] && !humanAll[i] ? 1 : 0;
   }
   if (correction) {
     for (let i = 0; i < n; i++) {
@@ -291,8 +308,8 @@ export function buildBuffer(cls, W, H, { aoi = null, correction = null, edgeBand
       else if (correction[i] < 0) buf[i] = 0;
     }
   }
-  if (aoi) for (let i = 0; i < n; i++) if (!aoi[i]) buf[i] = 0;
-  return buf;
+  if (aoi) for (let i = 0; i < n; i++) if (!aoi[i]) { buf[i] = 0; if (band) band[i] = 0; }
+  return { buffer: buf, band, human: humanAll };
 }
 
 /** マスク内の 1 の個数。 */

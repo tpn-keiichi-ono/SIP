@@ -9,7 +9,7 @@
 <body>
 <header>
   <h1 id="title">森林緩衝帯 消失シミュレーター</h1>
-  <span class="sub">時系列空中写真から森林緩衝帯（森林と集落の間の田畑・草地などの開放地）を抽出し、縮小から消失までの変遷を可視化・予測します</span>
+  <span class="sub">時系列空中写真から森林緩衝帯（住宅・田畑などの生活空間と森林の間にある疎林・草地の帯）を抽出し、縮小から消失までの変遷を可視化・予測します</span>
   <span class="spacer"></span>
   <span class="status" id="status">読み込み中…</span>
 </header>
@@ -23,7 +23,7 @@
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">生活空間</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
       </div>
       <div id="loading"><div style="max-width:560px;text-align:center;line-height:1.6">画像を読み込んで分類しています…<br><small id="loadingHint">この表示のまま変わらない場合、スクリプトの実行が許可されていない環境（ファイルプレビューなど）です。ブラウザで直接開くか、サーバー経由で開いてください。</small></div></div>
     </div>
@@ -51,7 +51,9 @@
         <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
-          <label><input type="checkbox" id="showSettlement" checked> 生活空間（住宅地）</label>
+          <label><input type="checkbox" id="showSettlement" checked> 住宅地</label>
+          <label><input type="checkbox" id="showField"> 田畑</label>
+          <label><input type="checkbox" id="showBandLost"> 帯のうち森林化した部分</label>
           <label><input type="checkbox" id="showForest"> 森林（緑）</label>
           <label><input type="checkbox" id="showBuilt"> 人工物・裸地</label>
           <label><input type="checkbox" id="showWater"> 水域</label>
@@ -78,8 +80,9 @@
         <p class="note" id="paramTarget"></p>
         <p class="note"><b>教師サンプル</b>：ボタンを選んで写真上をクリックすると、その場所の見え方をクラスの手本として登録します（全時期に共通のサンプルと、選択中の時期だけのサンプルを併用できます）。</p>
         <div class="btns" id="sampleTools">
-          <button data-cls="forest" style="border-left:4px solid #3ddc84">＋森林</button>
-          <button data-cls="open" style="border-left:4px solid #ffd400">＋開放地</button>
+          <button data-cls="forest" style="border-left:4px solid #3ddc84">＋森林（密）</button>
+          <button data-cls="sparse" style="border-left:4px solid #ff9f1a">＋疎林・草地</button>
+          <button data-cls="open" style="border-left:4px solid #ffd400">＋田畑</button>
           <button data-cls="built" style="border-left:4px solid #4fd3ff">＋人工物・裸地</button>
           <button data-cls="delete">サンプル削除</button>
         </div>
@@ -104,7 +107,7 @@
             <div class="ctl"><label for="pBuilt">人工物の輝度下限</label><input type="range" id="pBuilt" min="0" max="256" step="1"><span class="val" id="pBuiltVal"></span></div>
             <div class="ctl"><label for="pChroma">人工物の彩度上限</label><input type="range" id="pChroma" min="0" max="255" step="1"><span class="val" id="pChromaVal"></span></div>
             <div class="btns"><button id="btnAuto">森林しきい値を自動（大津法）に</button><button id="btnAutoAll">全時期を自動に</button></div>
-            <p class="note">森林・開放地のサンプルが無い時期は、輝度がこの上限より暗い画素を森林とします。人工物のサンプルが無い時期は、輝度が下限より明るく彩度が上限より低い画素を人工物・裸地とします（サンプルがある時期でも人工物ルールは併用されます）。</p>
+            <p class="note">「疎林・草地」は間伐された林、草地、耕作をやめて間もない土地など、密な森林でも田畑でもない土地です。このクラスのサンプルが無い時期は緩衝帯を判定できません。森林・田畑のサンプルが無い時期は、輝度がこの上限より暗い画素を森林とします。人工物のサンプルが無い時期は、輝度が下限より明るく彩度が上限より低い画素を人工物・裸地とします（サンプルがある時期でも人工物ルールは併用されます）。</p>
           </div>
         </details>
       </div>
@@ -113,12 +116,13 @@
     <details>
       <summary>緩衝帯の定義・手動修正</summary>
       <div class="body">
-        <div class="ctl"><label for="edgeBand">森林境界からの幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="0"><span class="val" id="edgeBandVal">全域</span></div>
-        <p class="note">0 なら陸域の開放地すべてを緩衝帯とみなします。値を入れると森林境界からその距離以内の開放地だけを緩衝帯とします。</p>
+        <p class="note"><b>緩衝帯</b> = 生活空間（住宅地・田畑・人工物）の周囲の帯のうち、密な森林ではない「疎林・草地」の部分。帯の中が森林になると緩衝帯が失われたとみなします。</p>
+        <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="50"><span class="val" id="edgeBandVal">50 m</span></div>
+        <p class="note">0 にすると帯で限定せず、疎林・草地すべてを緩衝帯とします。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
         <p class="note">クリック（タップ）で頂点を追加し、ダブルクリックまたは「範囲を確定」で確定。範囲外は解析対象外になります。</p>
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
-        <p class="note"><b>生活空間（住宅地・集落）</b>は緩衝帯に含めません。下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
+        <p class="note"><b>住宅地・集落</b>は生活空間として緩衝帯に含めません（田畑・人工物は分類結果から自動的に生活空間になります）。下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
         <div class="ctl"><label for="settleM">人工物の周囲 (m)</label><input type="range" id="settleM" min="0" max="150" step="5" value="0"><span class="val" id="settleMVal">なし</span></div>
         <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
         <p class="note" id="settleInfo"></p>
@@ -147,7 +151,7 @@
     <details>
       <summary>統計</summary>
       <div class="body">
-        <table class="stats"><thead><tr><th>年</th><th class="num">緩衝帯 ha</th><th class="num">陸域比 %</th><th class="num">森林 ha</th><th class="num">増減 ha/年</th></tr></thead><tbody id="statRows"></tbody></table>
+        <table class="stats"><thead><tr><th>年</th><th class="num">緩衝帯 ha</th><th class="num">陸域比 %</th><th class="num">森林 ha</th><th class="num">田畑 ha</th><th class="num">住宅地 ha</th><th class="num">増減 ha/年</th></tr></thead><tbody id="statRows"></tbody></table>
         <p class="note" id="scaleNote"></p>
       </div>
     </details>

@@ -32,20 +32,21 @@ const state = {
 };
 
 // ---------- 教師サンプル ----------
-const SAMPLE_COLORS = { forest: '#3ddc84', open: '#ffd400', built: '#4fd3ff' };
-const SAMPLE_LABELS = { forest: '森林', open: '開放地', built: '人工物・裸地' };
+const SAMPLE_COLORS = { forest: '#3ddc84', sparse: '#ff9f1a', open: '#ffd400', built: '#4fd3ff' };
+const SAMPLE_LABELS = { forest: '森林', sparse: '疎林・草地', open: '田畑', built: '人工物' };
+const SAMPLE_CLASSES = ['forest', 'sparse', 'open', 'built'];
 function normalizeSamples(src) {
   const conv = (arr) => (arr || []).map(c => Array.isArray(c) ? { x: c[0], y: c[1], r: c[2] ?? 8 } : { x: c.x, y: c.y, r: c.r ?? 8 }).filter(c => Number.isFinite(c.x) && Number.isFinite(c.y));
-  const cls = (o) => ({ forest: conv(o?.forest), open: conv(o?.open), built: conv(o?.built) });
+  const cls = (o) => ({ forest: conv(o?.forest), sparse: conv(o?.sparse), open: conv(o?.open), built: conv(o?.built) });
   const out = { shared: cls(src?.shared), byScene: {} };
   for (const [id, o] of Object.entries(src?.byScene || {})) out.byScene[id] = cls(o);
   return out;
 }
-function sceneSamples(id) { if (!state.samples.byScene[id]) state.samples.byScene[id] = { forest: [], open: [], built: [] }; return state.samples.byScene[id]; }
+function sceneSamples(id) { if (!state.samples.byScene[id]) state.samples.byScene[id] = { forest: [], sparse: [], open: [], built: [] }; return state.samples.byScene[id]; }
 function samplesFor(s) {
   const own = state.samples.byScene[s.id] || {};
   const merged = {};
-  for (const c of ['forest', 'open', 'built']) merged[c] = [...state.samples.shared[c], ...(own[c] || [])];
+  for (const c of SAMPLE_CLASSES) merged[c] = [...(state.samples.shared[c] || []), ...(own[c] || [])];
   return merged;
 }
 
@@ -128,11 +129,14 @@ function recomputeScene(s) {
   recomputeBuffer(s);
 }
 function recomputeBuffer(s) {
-  const edgeBandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
+  const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  s.buffer = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, edgeBandPx, exclude: s.settlement });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement });
+  s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
+    field: countMask(s.cls.open, state.aoiMask) * state.pxAreaHa,
+    sparse: countMask(s.cls.sparse, state.aoiMask) * state.pxAreaHa,
     land: countMask(s.cls.land, state.aoiMask) * state.pxAreaHa,
     buffer: countMask(s.buffer) * state.pxAreaHa,
     forest: countMask(s.cls.forest, state.aoiMask) * state.pxAreaHa,
@@ -250,8 +254,8 @@ function buildOverlay(frame) {
   }
   const d = state.display;
   composeOverlay(overlayData, {
-    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement,
-  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false });
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band,
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost });
   overlayCtx.putImageData(overlayData, 0, 0);
   return overlayCanvas;
 }
@@ -279,7 +283,7 @@ function drawSamples(ctx) {
       ctx.setLineDash([]); ctx.fillStyle = SAMPLE_COLORS[cls]; ctx.beginPath(); ctx.arc(q.x, q.y, 2, 0, Math.PI * 2); ctx.fill();
     }
   };
-  for (const cls of ['forest', 'open', 'built']) { draw(state.samples.shared[cls], cls, false); draw((state.samples.byScene[s.id] || {})[cls] || [], cls, true); }
+  for (const cls of SAMPLE_CLASSES) { draw(state.samples.shared[cls] || [], cls, false); draw((state.samples.byScene[s.id] || {})[cls] || [], cls, true); }
   ctx.restore();
 }
 let lastFrame = null;
@@ -400,6 +404,8 @@ function setupDisplayPanel() {
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showField', () => !!d.showField, (v) => { d.showField = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showBandLost', () => !!d.showBandLost, (v) => { d.showBandLost = v; save(); syncLegend(); requestRender(); });
   bindCheck('showForest', () => d.showForest, (v) => { d.showForest = v; save(); syncLegend(); requestRender(); });
   bindCheck('showBuilt', () => d.showBuilt, (v) => { d.showBuilt = v; save(); syncLegend(); requestRender(); });
   bindCheck('showWater', () => d.showWater, (v) => { d.showWater = v; save(); syncLegend(); requestRender(); });
@@ -411,7 +417,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
@@ -460,10 +466,10 @@ function setupParamPanel() {
 }
 function refreshParamPanel() {
   const s = selectedScene(); if (!s) return;
-  $('paramTarget').innerHTML = `対象: <b>${s.year} 年 ${esc(s.label || s.id)}</b>${s.feat?.grayscale ? '（モノクロ画像）' : ''} ／ 分類方式: ${s.cls?.useGauss ? 'サンプルによる最近傍プロトタイプ判定' : '<span class="warn">輝度しきい値（森林・開放地のサンプルが不足）</span>'}`;
+  $('paramTarget').innerHTML = `対象: <b>${s.year} 年 ${esc(s.label || s.id)}</b>${s.feat?.grayscale ? '（モノクロ画像）' : ''} ／ 分類方式: ${s.cls?.useGauss ? 'サンプルによる最近傍プロトタイプ判定' : '<span class="warn">輝度しきい値（森林・田畑のサンプルが不足）</span>'}${s.cls && !s.cls.hasSparse ? ' <span class="warn">／ 疎林・草地のサンプルが無いため緩衝帯を判定できません</span>' : ''}`;
   for (const r of paramRefreshers) r();
-  const sh = state.samples.shared, own = state.samples.byScene[s.id] || { forest: [], open: [], built: [] };
-  const fmt = (o) => ['forest', 'open', 'built'].map(c => `${SAMPLE_LABELS[c]} ${(o[c] || []).length}`).join('・');
+  const sh = state.samples.shared, own = state.samples.byScene[s.id] || {};
+  const fmt = (o) => SAMPLE_CLASSES.map(c => `${SAMPLE_LABELS[c]} ${(o[c] || []).length}`).join('・');
   $('sampleInfo').textContent = `共通サンプル: ${fmt(sh)} ／ この時期のサンプル: ${fmt(own)}`;
 }
 function setupSampleTools() {
@@ -480,7 +486,7 @@ function setupSampleTools() {
   bindCheck('sampleShared', () => state.sampleTool.shared, (v) => { state.sampleTool.shared = v; });
   bindCheck('sampleShow', () => state.sampleTool.show, (v) => { state.sampleTool.show = v; requestRender(); });
   $('btnSampleClearScene').addEventListener('click', () => { const s = selectedScene(); if (!confirm(`${s.year} 年のサンプルをすべて削除しますか？`)) return; delete state.samples.byScene[s.id]; save(); recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); });
-  $('btnSampleClearShared').addEventListener('click', () => { if (!confirm('全時期に共通のサンプルをすべて削除しますか？（各時期は個別サンプルかしきい値ルールで判定されます）')) return; state.samples.shared = { forest: [], open: [], built: [] }; save(); recomputeAllScenes(); });
+  $('btnSampleClearShared').addEventListener('click', () => { if (!confirm('全時期に共通のサンプルをすべて削除しますか？（各時期は個別サンプルかしきい値ルールで判定されます）')) return; state.samples.shared = { forest: [], sparse: [], open: [], built: [] }; save(); recomputeAllScenes(); });
 }
 function recomputeAllScenes() { for (const s of state.scenes) recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); }
 function sampleClick(p) {
@@ -491,15 +497,15 @@ function sampleClick(p) {
   if (mode === 'delete') {
     const lists = [['shared', state.samples.shared], ['own', state.samples.byScene[s.id] || {}]];
     let best = null;
-    for (const [kind, o] of lists) for (const cls of ['forest', 'open', 'built']) (o[cls] || []).forEach((c, idx) => {
+    for (const [kind, o] of lists) for (const cls of SAMPLE_CLASSES) (o[cls] || []).forEach((c, idx) => {
       const d = Math.hypot(c.x - p.x, c.y - p.y); if (d <= Math.max(c.r, 6) && (!best || d < best.d)) best = { d, kind, cls, idx, o };
     });
     if (!best) return;
     best.o[best.cls].splice(best.idx, 1); touchedShared = best.kind === 'shared';
   } else {
     const c = { x: Math.round(p.x), y: Math.round(p.y), r: state.sampleTool.radius };
-    if (state.sampleTool.shared) { state.samples.shared[mode].push(c); touchedShared = true; }
-    else sceneSamples(s.id)[mode].push(c);
+    if (state.sampleTool.shared) { (state.samples.shared[mode] ||= []).push(c); touchedShared = true; }
+    else (sceneSamples(s.id)[mode] ||= []).push(c);
   }
   save();
   if (touchedShared) recomputeAllScenes(); else { recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); }
@@ -511,7 +517,7 @@ function scheduleSceneRecompute(s) {
 }
 
 function setupBufferPanel() {
-  bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '全域'));
+  bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし（疎林・草地すべて）'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
   $('btnAoiDone').addEventListener('click', finishAoi);
   bindRange('settleM', 'settleMVal', () => state.settlement.autoM, (v) => { state.settlement.autoM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし'));
@@ -588,7 +594,7 @@ function updateStats() {
   for (const s of tl.scenes) {
     const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : null;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${s.stats.settlement.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
+    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${s.stats.field.toFixed(1)}</td><td class="num">${s.stats.settlement.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
     tb.appendChild(tr); prev = s;
   }
   $('scaleNote').textContent = `縮尺 ${state.mPerPx.toFixed(3)} m/px（スケールバー ${CFG.scale?.barMeters} m = ${CFG.scale?.barPx} px）、1 画素 = ${(state.pxAreaHa * 10000).toFixed(2)} m²、陸域 ${tl.scenes[0].stats.land.toFixed(1)} ha${state.aoiMask ? '（解析範囲内）' : ''}`;
@@ -683,7 +689,7 @@ function paintAt(e) {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     if ((x - p.x) ** 2 + (y - p.y) ** 2 > rad * rad) continue;
     const i = y * state.W + x; s.correction[i] = v;
-    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) && !(s.settlement && s.settlement[i]) ? 1 : 0) : 0;
+    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) && !(s.human && s.human[i]) ? 1 : 0) : 0;
   }
   requestRender();
 }
@@ -755,19 +761,19 @@ function exportPng() {
 }
 function exportCsv() {
   const tl = state.timeline; if (!tl) return;
-  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,人工物_ha,生活空間_ha,増減_ha_per_年'];
+  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,疎林草地_ha,田畑_ha,人工物_ha,住宅地_ha,増減_ha_per_年'];
   let prev = null;
   for (const s of tl.scenes) {
     const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : '';
-    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.built.toFixed(2), s.stats.settlement.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
+    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.sparse.toFixed(2), s.stats.field.toFixed(2), s.stats.built.toFixed(2), s.stats.settlement.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
     prev = s;
   }
   if (tl.trend.ok) {
     for (let y = Math.ceil(tl.start.year / 5) * 5; y <= tl.xMax; y += 5) {
       if (y <= tl.start.year) continue;
-      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
+      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
     }
-    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', '', ''].join(','));
+    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', '', '', '', ''].join(','));
   }
   download(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }), 'forest-buffer-areas.csv');
 }
@@ -836,7 +842,7 @@ window.SIP = {
   state,
   setYear: (y) => { setYear(y); render(); },
   getFrame: () => lastFrame && { year: lastFrame.t, mode: lastFrame.mode, areaHa: lastFrame.areaHa, lostHa: lastFrame.lostHa },
-  getStats: () => state.timeline && state.timeline.scenes.map(s => ({ id: s.id, year: s.year, label: s.label, ...s.stats, useGauss: s.cls.useGauss, bias: s.cls.resolved.bias })),
+  getStats: () => state.timeline && state.timeline.scenes.map(s => ({ id: s.id, year: s.year, label: s.label, ...s.stats, useGauss: s.cls.useGauss, hasSparse: s.cls.hasSparse, bias: s.cls.resolved.bias })),
   getProjection: () => state.timeline && { start: state.timeline.start.year, disappearYear: state.timeline.projection.disappearYear, rateHa: state.timeline.projection.sched.rateHa, ratePct: state.timeline.projection.sched.ratePct, r2: state.timeline.trend.r2, thresholdHa: state.timeline.thresholdHa, xMax: state.timeline.xMax },
   renderFrame: (W, H) => renderToCanvas(W || state.W, H || state.H).toDataURL('image/png'),
   ready: init(),
