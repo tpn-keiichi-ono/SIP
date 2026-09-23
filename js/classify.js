@@ -288,10 +288,14 @@ export function classifyScene(feat, W, H, params, water, samples) {
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null } = {}) {
+export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 60 } = {}) {
   const n = W * H;
+  // 田畑・人工物は、森の中の小さな断片（誤判定や小屋など）を除き、まとまった区画だけを生活空間とみなす
+  const fieldBuilt = new Uint8Array(n);
+  for (let i = 0; i < n; i++) fieldBuilt[i] = cls.land[i] && (cls.open[i] || cls.built[i]) ? 1 : 0;
+  const fieldBuiltBig = minHumanRegionPx > 1 ? removeSmallRegions(fieldBuilt, W, H, minHumanRegionPx, 8) : fieldBuilt;
   const humanAll = new Uint8Array(n);
-  for (let i = 0; i < n; i++) humanAll[i] = cls.land[i] && ((human && human[i]) || cls.open[i] || cls.built[i]) ? 1 : 0;
+  for (let i = 0; i < n; i++) humanAll[i] = cls.land[i] && ((human && human[i]) || fieldBuiltBig[i]) ? 1 : 0;
   const buf = new Uint8Array(n);
   let band = null;
   if (bandPx > 0) {
@@ -302,14 +306,15 @@ export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx =
   } else {
     for (let i = 0; i < n; i++) buf[i] = cls.sparse[i] && !humanAll[i] ? 1 : 0;
   }
+  let out = minBufferRegionPx > 1 ? removeSmallRegions(buf, W, H, minBufferRegionPx, 8) : buf; // 帯の中の細かな斑点を除く
   if (correction) {
     for (let i = 0; i < n; i++) {
-      if (correction[i] > 0) { if (cls.land[i]) buf[i] = 1; }
-      else if (correction[i] < 0) buf[i] = 0;
+      if (correction[i] > 0) { if (cls.land[i]) out[i] = 1; }
+      else if (correction[i] < 0) out[i] = 0;
     }
   }
-  if (aoi) for (let i = 0; i < n; i++) if (!aoi[i]) { buf[i] = 0; if (band) band[i] = 0; }
-  return { buffer: buf, band, human: humanAll };
+  if (aoi) for (let i = 0; i < n; i++) if (!aoi[i]) { out[i] = 0; if (band) band[i] = 0; }
+  return { buffer: out, band, human: humanAll };
 }
 
 /** マスク内の 1 の個数。 */
