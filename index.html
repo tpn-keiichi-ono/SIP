@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>森林緩衝帯 消失シミュレーター</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1 id="title">森林緩衝帯 消失シミュレーター</h1>
+  <span class="sub">時系列空中写真から森林緩衝帯（森林と集落の間の田畑・草地などの開放地）を抽出し、縮小から消失までの変遷を可視化・予測します</span>
+  <span class="spacer"></span>
+  <span class="status" id="status">読み込み中…</span>
+</header>
+<main>
+  <section id="viewerPane">
+    <div id="viewerWrap">
+      <canvas id="viewer"></canvas>
+      <div id="hud">
+        <div class="year" id="hudYear">—</div>
+        <div class="mode" id="hudMode">観測</div>
+        <div class="stats" id="hudStats"></div>
+      </div>
+      <div id="legend">
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
+      </div>
+      <div id="loading">画像を読み込んで分類しています…</div>
+    </div>
+    <div id="timeline">
+      <div class="row">
+        <button id="btnPlay" class="primary" title="再生 / 一時停止">▶ 再生</button>
+        <button id="btnPrev" title="前の観測時期">◀◀</button>
+        <button id="btnNext" title="次の観測時期">▶▶</button>
+        <input type="range" id="yearSlider" min="1960" max="2100" step="0.5" value="1960">
+        <label>速度 <select id="speed"><option value="1">1 年/秒</option><option value="3" selected>3 年/秒</option><option value="6">6 年/秒</option><option value="12">12 年/秒</option></select></label>
+        <label><input type="checkbox" id="loop"> ループ</label>
+      </div>
+      <div id="ticks"></div>
+    </div>
+    <div id="chartWrap">
+      <canvas id="chart"></canvas>
+      <div class="tooltip" id="chartTip" hidden></div>
+    </div>
+  </section>
+
+  <aside>
+    <details open>
+      <summary>表示</summary>
+      <div class="body">
+        <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
+        <div class="checks">
+          <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
+          <label><input type="checkbox" id="showForest"> 森林（緑）</label>
+          <label><input type="checkbox" id="showBuilt"> 人工物・裸地</label>
+          <label><input type="checkbox" id="showWater"> 水域</label>
+          <label><input type="checkbox" id="crossfade" checked> 背景写真をクロスフェード</label>
+          <label><input type="checkbox" id="fixLatest"> 背景を最新写真に固定</label>
+          <label><input type="checkbox" id="showOverlay" checked> オーバーレイ表示</label>
+        </div>
+        <div class="btns"><button id="btnFit">全体表示</button><span class="note">ドラッグで移動、ホイールで拡大縮小</span></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>観測時期（画像）</summary>
+      <div class="body">
+        <table class="scenes"><thead><tr><th></th><th>ID</th><th>撮影年</th><th>ラベル</th><th></th></tr></thead><tbody id="sceneRows"></tbody></table>
+        <p class="note" id="yearNote"></p>
+        <div id="dropHint">ここに空中写真をドロップ、または <label style="text-decoration:underline;cursor:pointer">ファイルを選択<input type="file" id="fileInput" accept="image/*" multiple hidden></label><br>（同じ範囲・同じ縮尺で切り出した画像を追加できます）</div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>判定パラメータ（選択中の時期）</summary>
+      <div class="body">
+        <p class="note" id="paramTarget"></p>
+        <p class="note"><b>教師サンプル</b>：ボタンを選んで写真上をクリックすると、その場所の見え方をクラスの手本として登録します（全時期に共通のサンプルと、選択中の時期だけのサンプルを併用できます）。</p>
+        <div class="btns" id="sampleTools">
+          <button data-cls="forest" style="border-left:4px solid #3ddc84">＋森林</button>
+          <button data-cls="open" style="border-left:4px solid #ffd400">＋開放地</button>
+          <button data-cls="built" style="border-left:4px solid #4fd3ff">＋人工物・裸地</button>
+          <button data-cls="delete">サンプル削除</button>
+        </div>
+        <div class="ctl"><label for="sampleRadius">サンプル半径 (px)</label><input type="range" id="sampleRadius" min="2" max="40" step="1" value="10"><span class="val" id="sampleRadiusVal">10</span></div>
+        <div class="checks">
+          <label><input type="checkbox" id="sampleShared"> 全時期に共通のサンプルとして登録</label>
+          <label><input type="checkbox" id="sampleShow"> サンプルを常に表示</label>
+        </div>
+        <p class="note" id="sampleInfo"></p>
+        <div class="btns"><button id="btnSampleClearScene">この時期のサンプルをクリア</button><button id="btnSampleClearShared">共通サンプルをクリア</button></div>
+        <div class="ctl"><label for="pBias">判定の傾き</label><input type="range" id="pBias" min="-3" max="3" step="0.25"><span class="val" id="pBiasVal"></span></div>
+        <p class="note">負にすると森林、正にすると開放地と判定しやすくなります。</p>
+        <div class="ctl"><label for="pSmooth">平滑化半径 (px)</label><input type="range" id="pSmooth" min="0" max="8" step="1"><span class="val" id="pSmoothVal"></span></div>
+        <div class="ctl"><label for="pTex">テクスチャ窓半径 (px)</label><input type="range" id="pTex" min="1" max="5" step="1"><span class="val" id="pTexVal"></span></div>
+        <div class="ctl"><label for="pClean">整形半径 (px)</label><input type="range" id="pClean" min="0" max="6" step="1"><span class="val" id="pCleanVal"></span></div>
+        <div class="ctl"><label for="pMin">最小領域 (px)</label><input type="range" id="pMin" min="0" max="600" step="10"><span class="val" id="pMinVal"></span></div>
+        <div class="checks"><label><input type="checkbox" id="pCoast" checked> 水域に接する白波・砂浜・岩礁を除外</label></div>
+        <details>
+          <summary style="font-weight:normal;font-size:12px">サンプルが無いときのしきい値ルール</summary>
+          <div class="body">
+            <div class="ctl"><label for="pForest">森林の輝度上限</label><input type="range" id="pForest" min="0" max="255" step="1"><span class="val" id="pForestVal"></span></div>
+            <div class="ctl"><label for="pBuilt">人工物の輝度下限</label><input type="range" id="pBuilt" min="0" max="256" step="1"><span class="val" id="pBuiltVal"></span></div>
+            <div class="ctl"><label for="pChroma">人工物の彩度上限</label><input type="range" id="pChroma" min="0" max="255" step="1"><span class="val" id="pChromaVal"></span></div>
+            <div class="btns"><button id="btnAuto">森林しきい値を自動（大津法）に</button><button id="btnAutoAll">全時期を自動に</button></div>
+            <p class="note">森林・開放地のサンプルが無い時期は、輝度がこの上限より暗い画素を森林とします。人工物のサンプルが無い時期は、輝度が下限より明るく彩度が上限より低い画素を人工物・裸地とします（サンプルがある時期でも人工物ルールは併用されます）。</p>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details>
+      <summary>緩衝帯の定義・手動修正</summary>
+      <div class="body">
+        <div class="ctl"><label for="edgeBand">森林境界からの幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="0"><span class="val" id="edgeBandVal">全域</span></div>
+        <p class="note">0 なら陸域の開放地すべてを緩衝帯とみなします。値を入れると森林境界からその距離以内の開放地だけを緩衝帯とします。</p>
+        <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiClear">範囲をクリア</button></div>
+        <p class="note">クリックで頂点を追加、ダブルクリックで確定。範囲外は解析対象外になります。</p>
+        <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>
+        <div class="ctl"><label for="brushSize">ブラシ半径 (px)</label><input type="range" id="brushSize" min="2" max="60" step="1" value="12"><span class="val" id="brushSizeVal">12</span></div>
+        <div class="btns"><button id="btnCorrClear">この時期の修正をクリア</button></div>
+        <p class="note">修正は選択中の観測時期に対して記録され、ブラウザに保存されます（設定 JSON にも含まれます）。</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>シミュレーション（消失予測）</summary>
+      <div class="body">
+        <div class="ctl"><label for="model">面積の傾向モデル</label><select id="model"><option value="linear">線形（一定面積/年）</option><option value="exp">指数（一定割合/年）</option><option value="last">最終区間の変化率</option><option value="manual">手動の年率</option></select><span></span></div>
+        <div class="ctl" id="manualRow" hidden><label for="manualRate">年率 (%/年)</label><input type="number" id="manualRate" step="0.1" value="-2"><span></span></div>
+        <div class="ctl"><label for="startScene">予測の起点</label><select id="startScene"></select><span></span></div>
+        <div class="ctl"><label for="threshold">消失判定 (初期の%)</label><input type="range" id="threshold" min="0" max="30" step="1" value="5"><span class="val" id="thresholdVal">5%</span></div>
+        <div class="ctl"><label for="jitter">ゆらぎ (m)</label><input type="range" id="jitter" min="0" max="60" step="2" value="12"><span class="val" id="jitterVal">12</span></div>
+        <div class="ctl"><label for="protect">集落近傍の維持 (m)</label><input type="range" id="protect" min="0" max="150" step="5" value="0"><span class="val" id="protectVal">0</span></div>
+        <div class="ctl"><label for="seed">乱数シード</label><input type="number" id="seed" min="0" step="1" value="1"><span></span></div>
+        <div class="readout" id="simReadout"></div>
+        <p class="note">傾向モデルで面積の減り方を決め、空間パターンは「森林境界に近い開放地から順に森林化する」距離ベースの侵入モデルで描きます。起点を過去の時期にすると、その時点までの観測だけで予測した結果と実際の観測を比べられます。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>統計</summary>
+      <div class="body">
+        <table class="stats"><thead><tr><th>年</th><th class="num">緩衝帯 ha</th><th class="num">陸域比 %</th><th class="num">森林 ha</th><th class="num">増減 ha/年</th></tr></thead><tbody id="statRows"></tbody></table>
+        <p class="note" id="scaleNote"></p>
+      </div>
+    </details>
+
+    <details>
+      <summary>書き出し・設定</summary>
+      <div class="body">
+        <div class="btns">
+          <button id="btnPng">現在のフレームを PNG</button>
+          <button id="btnCsv">面積表を CSV</button>
+          <button id="btnJson">設定を JSON で保存</button>
+          <label><button type="button" onclick="document.getElementById('jsonInput').click()">設定 JSON を読み込む</button><input type="file" id="jsonInput" accept="application/json" hidden></label>
+          <button id="btnVideo">アニメーションを WebM 動画に</button>
+          <button id="btnReset">初期化（保存した設定を消去）</button>
+        </div>
+        <p class="note" id="exportNote"></p>
+      </div>
+    </details>
+  </aside>
+</main>
+<script src="data/config.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

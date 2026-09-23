@@ -1,0 +1,768 @@
+// main.js — UI とデータフローの本体。
+// 流れ: 画像読み込み → 特徴量 → 水域マスク → 時期ごとの分類 → 緩衝帯マスク → 補間・予測の前計算 → 描画
+
+import { polygonMask, rleEncode, rleDecode } from './morph.js';
+import { computeFeatures, buildWaterMask, classifyScene, buildBuffer, defaultParams, countMask } from './classify.js';
+import { fitTrend, buildIntervals, interpolate, buildProjection } from './timeline.js';
+import { composeOverlay, drawPolygon } from './render.js';
+import { AreaChart } from './chart.js';
+
+const CFG = window.SIP_CONFIG || { scenes: [] };
+const STORAGE_KEY = 'sip-forest-buffer-sim-v1';
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
+  scenes: [], water: null,
+  aoiPoints: [], aoiMask: null, aoiDrawing: false,
+  display: { ...CFG.display },
+  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0 },
+  sim: { ...CFG.simulation },
+  samples: normalizeSamples(CFG.samples),
+  sampleTool: { mode: null, radius: 10, shared: false, show: false },
+  coastBandM: CFG.coastBandM ?? 25,
+  selectedId: null,
+  year: 0, playing: false, lastTs: 0,
+  timeline: null,
+  view: { scale: 1, tx: 0, ty: 0 },
+  brush: { mode: 0, size: 12, painting: false },
+  recording: null,
+};
+
+// ---------- 教師サンプル ----------
+const SAMPLE_COLORS = { forest: '#3ddc84', open: '#ffd400', built: '#4fd3ff' };
+const SAMPLE_LABELS = { forest: '森林', open: '開放地', built: '人工物・裸地' };
+function normalizeSamples(src) {
+  const conv = (arr) => (arr || []).map(c => Array.isArray(c) ? { x: c[0], y: c[1], r: c[2] ?? 8 } : { x: c.x, y: c.y, r: c.r ?? 8 }).filter(c => Number.isFinite(c.x) && Number.isFinite(c.y));
+  const cls = (o) => ({ forest: conv(o?.forest), open: conv(o?.open), built: conv(o?.built) });
+  const out = { shared: cls(src?.shared), byScene: {} };
+  for (const [id, o] of Object.entries(src?.byScene || {})) out.byScene[id] = cls(o);
+  return out;
+}
+function sceneSamples(id) { if (!state.samples.byScene[id]) state.samples.byScene[id] = { forest: [], open: [], built: [] }; return state.samples.byScene[id]; }
+function samplesFor(s) {
+  const own = state.samples.byScene[s.id] || {};
+  const merged = {};
+  for (const c of ['forest', 'open', 'built']) merged[c] = [...state.samples.shared[c], ...(own[c] || [])];
+  return merged;
+}
+
+// ---------- 永続化 ----------
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
+}
+function serialize() {
+  return {
+    version: 1,
+    scale: CFG.scale,
+    scenes: state.scenes.filter(s => s.file).map(s => ({
+      id: s.id, file: s.file, year: s.year, label: s.label, estimated: !!s.estimated, params: s.params,
+      correction: s.correction ? rleEncode(s.correction) : null,
+    })),
+    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, aoi: state.aoiPoints }, sim: state.sim,
+    samples: state.samples, coastBandM: state.coastBandM,
+  };
+}
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize())); } catch (e) { console.warn('保存に失敗', e); } }, 300);
+}
+function applySaved(saved) {
+  if (!saved) return;
+  if (saved.display) Object.assign(state.display, saved.display);
+  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.aoiPoints = saved.buffer.aoi || []; }
+  if (saved.sim) Object.assign(state.sim, saved.sim);
+  if (saved.samples) state.samples = normalizeSamples(saved.samples);
+  if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.scenes) {
+    for (const ss of saved.scenes) {
+      const s = state.scenes.find(x => x.id === ss.id);
+      if (!s) continue;
+      if (ss.year != null) s.year = ss.year;
+      if (ss.label != null) s.label = ss.label;
+      if (ss.estimated != null) s.estimated = ss.estimated;
+      if (ss.params) s.params = { ...ss.params };
+      if (ss.correction) s._pendingCorrection = ss.correction;
+    }
+  }
+}
+
+// ---------- 画像読み込み ----------
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('画像を読み込めません: ' + src));
+    img.src = src;
+  });
+}
+function rasterize(img, W, H) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, W, H);
+  let rgba;
+  try { rgba = ctx.getImageData(0, 0, W, H).data; }
+  catch (e) { throw new Error('画像の画素を読めません。file:// ではなく http サーバー経由で開いてください（README 参照）。'); }
+  return { canvas: c, rgba };
+}
+async function prepareScene(s, img) {
+  const { canvas, rgba } = rasterize(img, state.W, state.H);
+  s.canvas = canvas; s.rgba = rgba;
+  s.feat = computeFeatures(rgba, state.W, state.H);
+  if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; }
+}
+
+// ---------- 計算 ----------
+function computeWater() {
+  const refIds = CFG.waterReference || [];
+  let refs = state.scenes.filter(s => refIds.includes(s.id) && s.rgba);
+  if (!refs.length) refs = state.scenes.filter(s => s.rgba && !s.feat.grayscale);
+  state.water = refs.length ? buildWaterMask(refs.map(s => s.feat), state.W, state.H, { grow: Math.round((state.coastBandM || 0) / state.mPerPx) }) : null;
+}
+function recomputeScene(s) {
+  s.cls = classifyScene(s.feat, state.W, state.H, s.params, state.water, samplesFor(s));
+  recomputeBuffer(s);
+}
+function recomputeBuffer(s) {
+  const edgeBandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
+  s.buffer = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, edgeBandPx });
+  s.stats = {
+    land: countMask(s.cls.land, state.aoiMask) * state.pxAreaHa,
+    buffer: countMask(s.buffer) * state.pxAreaHa,
+    forest: countMask(s.cls.forest, state.aoiMask) * state.pxAreaHa,
+    built: countMask(s.cls.built, state.aoiMask) * state.pxAreaHa,
+  };
+}
+function sortedScenes() { return state.scenes.filter(s => s.buffer).slice().sort((a, b) => a.year - b.year); }
+
+function rebuildTimeline() {
+  const scenes = sortedScenes();
+  if (!scenes.length) { state.timeline = null; return; }
+  const sim = state.sim;
+  const jitterPx = (sim.jitterM || 0) / state.mPerPx;
+  const intervals = buildIntervals(scenes.map(s => ({ year: s.year, buffer: s.buffer, forest: s.cls.forest })), state.W, state.H, { seed: sim.seed | 0, jitterPx });
+  let startIdx = scenes.length - 1;
+  if (sim.startId) { const k = scenes.findIndex(s => s.id === sim.startId); if (k >= 0) startIdx = k; }
+  const start = scenes[startIdx];
+  const pts = scenes.slice(0, startIdx + 1).map(s => ({ x: s.year, y: s.stats.buffer }));
+  const trend = fitTrend(pts, sim.model, Number(sim.manualRatePct));
+  const initialArea = scenes[0].stats.buffer;
+  const thresholdHa = initialArea * (sim.thresholdPct || 0) / 100;
+  const projection = buildProjection({ year: start.year, buffer: start.buffer, forest: start.cls.forest, built: start.cls.built }, trend, state.W, state.H, {
+    pxAreaHa: state.pxAreaHa, thresholdHa, seed: sim.seed | 0, jitterPx, protectPx: (sim.protectM || 0) / state.mPerPx,
+  });
+  const xMin = scenes[0].year;
+  const lastObs = scenes[scenes.length - 1].year;
+  let xMax, note = '';
+  if (projection.disappearYear != null && projection.disappearYear > start.year) {
+    xMax = Math.max(lastObs, Math.ceil((projection.disappearYear + 2) / 5) * 5);
+  } else if (projection.disappearYear != null) { xMax = Math.max(lastObs, start.year + 10); note = '起点の時点で既に消失判定面積を下回っています'; }
+  else { xMax = Math.max(lastObs, start.year + 100); note = trend.ok ? '減少傾向ではないため 100 年以内に消失しません' : (trend.note || '傾向線を求められません'); }
+  if (xMax - xMin < 10) xMax = xMin + 10;
+  state.timeline = { scenes, intervals, start, startIdx, trend, projection, xMin, xMax, thresholdHa, initialArea, note, lastObs };
+  if (!Number.isFinite(state.year) || state.year < xMin || state.year > xMax) state.year = xMin;
+  updateTimelineUI();
+  updateChart();
+  updateStats();
+  updateSimReadout();
+}
+
+/** 年 t のフレーム（マスク・比較対象など）を求める。 */
+const frameBuf = { cur: null, lost: null, forest: null };
+function computeFrame(t) {
+  const tl = state.timeline; if (!tl) return null;
+  const n = state.W * state.H;
+  if (!frameBuf.cur) { frameBuf.cur = new Uint8Array(n); frameBuf.lost = new Uint8Array(n); frameBuf.forest = new Uint8Array(n); }
+  let base, next, frac, mode, compare;
+  if (t > tl.start.year + 1e-9) {
+    tl.projection.maskAt(t, frameBuf.cur);
+    base = tl.start; next = null; frac = 0; mode = 'pred'; compare = tl.start.buffer;
+  } else {
+    const r = interpolate(tl.scenes, tl.intervals, t, frameBuf.cur);
+    base = tl.scenes[r.base]; next = tl.scenes[r.next]; frac = r.frac;
+    const exact = tl.scenes.find(s => Math.abs(s.year - t) < 1e-6);
+    mode = exact ? 'obs' : 'interp';
+    if (exact) { base = exact; const k = tl.scenes.indexOf(exact); compare = k > 0 ? tl.scenes[k - 1].buffer : null; frac = 0; next = null; }
+    else compare = base.buffer;
+  }
+  const cur = frameBuf.cur, lost = frameBuf.lost, forest = frameBuf.forest;
+  const bf = base.cls.forest;
+  let lostCount = 0, curCount = 0;
+  for (let i = 0; i < n; i++) {
+    const l = compare && compare[i] && !cur[i] ? 1 : 0;
+    lost[i] = l; if (l) lostCount++;
+    if (cur[i]) curCount++;
+    forest[i] = bf[i] || l ? 1 : 0;
+  }
+  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear: compare ? (mode === 'pred' ? tl.start.year : (mode === 'obs' ? tl.scenes[tl.scenes.indexOf(base) - 1]?.year : base.year)) : null };
+}
+
+// ---------- 描画 ----------
+const viewer = $('viewer');
+const vctx = viewer.getContext('2d');
+let overlayCanvas = null, overlayCtx = null, overlayData = null;
+let renderQueued = false;
+function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); } }
+
+function fitView() {
+  const cw = viewer.clientWidth, ch = viewer.clientHeight;
+  if (!state.W || !cw) return;
+  const scale = Math.min(cw / state.W, ch / state.H);
+  state.view = { scale, tx: (cw - state.W * scale) / 2, ty: (ch - state.H * scale) / 2 };
+  requestRender();
+}
+function toScreen(x, y) { const v = state.view; return { x: x * v.scale + v.tx, y: y * v.scale + v.ty }; }
+function toImage(sx, sy) { const v = state.view; return { x: (sx - v.tx) / v.scale, y: (sy - v.ty) / v.scale }; }
+
+function drawBase(ctx, frame, W, H) {
+  const tl = state.timeline;
+  const d = state.display;
+  let a = frame.base, b = frame.next, f = frame.frac;
+  if (d.fixLatest) { a = tl.scenes[tl.scenes.length - 1]; b = null; }
+  if (frame.mode === 'pred') { a = tl.scenes[tl.scenes.length - 1]; b = null; if (!d.fixLatest) { a = frame.base; } }
+  ctx.drawImage(a.canvas, 0, 0, W, H);
+  if (b && d.crossfade && f > 0) { ctx.globalAlpha = f; ctx.drawImage(b.canvas, 0, 0, W, H); ctx.globalAlpha = 1; }
+  else if (b && !d.crossfade && f >= 0.5) ctx.drawImage(b.canvas, 0, 0, W, H);
+}
+
+function buildOverlay(frame) {
+  if (!overlayCanvas) {
+    overlayCanvas = document.createElement('canvas'); overlayCanvas.width = state.W; overlayCanvas.height = state.H;
+    overlayCtx = overlayCanvas.getContext('2d'); overlayData = overlayCtx.createImageData(state.W, state.H);
+  }
+  const d = state.display;
+  composeOverlay(overlayData, {
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask,
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater });
+  overlayCtx.putImageData(overlayData, 0, 0);
+  return overlayCanvas;
+}
+
+let coastCache = { scene: null, mask: null };
+function waterWithCoast(scene) {
+  if (!state.water) return scene.cls.coast || null;
+  if (!scene.cls.coast) return state.water;
+  if (coastCache.scene !== scene || coastCache.cls !== scene.cls) {
+    const m = new Uint8Array(state.water.length);
+    for (let i = 0; i < m.length; i++) m[i] = state.water[i] || scene.cls.coast[i] ? 1 : 0;
+    coastCache = { scene, cls: scene.cls, mask: m };
+  }
+  return coastCache.mask;
+}
+function drawSamples(ctx) {
+  const s = selectedScene(); if (!s) return;
+  ctx.save();
+  ctx.lineWidth = 2; ctx.font = '11px system-ui, sans-serif'; ctx.textBaseline = 'bottom';
+  const draw = (list, cls, dashed) => {
+    for (const c of list) {
+      const q = toScreen(c.x, c.y); const r = Math.max(3, c.r * state.view.scale);
+      ctx.strokeStyle = SAMPLE_COLORS[cls]; ctx.setLineDash(dashed ? [4, 3] : []);
+      ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = SAMPLE_COLORS[cls]; ctx.beginPath(); ctx.arc(q.x, q.y, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  };
+  for (const cls of ['forest', 'open', 'built']) { draw(state.samples.shared[cls], cls, false); draw((state.samples.byScene[s.id] || {})[cls] || [], cls, true); }
+  ctx.restore();
+}
+let lastFrame = null;
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  const cw = viewer.clientWidth, ch = viewer.clientHeight;
+  if (viewer.width !== Math.round(cw * dpr) || viewer.height !== Math.round(ch * dpr)) { viewer.width = Math.round(cw * dpr); viewer.height = Math.round(ch * dpr); }
+  vctx.setTransform(1, 0, 0, 1, 0, 0);
+  vctx.fillStyle = '#111'; vctx.fillRect(0, 0, viewer.width, viewer.height);
+  if (!state.timeline) return;
+  const frame = computeFrame(state.year);
+  lastFrame = frame;
+  const v = state.view;
+  vctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, dpr * v.tx, dpr * v.ty);
+  vctx.imageSmoothingEnabled = true;
+  drawBase(vctx, frame, state.W, state.H);
+  if (state.display.showOverlay !== false) vctx.drawImage(buildOverlay(frame), 0, 0);
+  vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
+  if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
+  updateHud(frame);
+  chart.setCurrentYear(state.year);
+  $('yearSlider').value = state.year;
+}
+
+function updateHud(frame) {
+  const tl = state.timeline;
+  $('hudYear').textContent = `${Math.floor(frame.t)} 年${frame.t % 1 >= 0.5 ? '（後半）' : ''}`;
+  const modeEl = $('hudMode');
+  modeEl.classList.toggle('pred', frame.mode === 'pred');
+  modeEl.textContent = frame.mode === 'obs' ? `観測: ${frame.base.label || frame.base.id}` : frame.mode === 'interp' ? `補間（${frame.base.year} → ${frame.next?.year} 年）` : `予測（${tl.start.year} 年を起点・${modelName(state.sim.model)}）`;
+  const pct = tl.initialArea > 0 ? frame.areaHa / tl.initialArea * 100 : 0;
+  let s = `森林緩衝帯 ${frame.areaHa.toFixed(1)} ha（${tl.scenes[0].year} 年比 ${pct.toFixed(0)}%）`;
+  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareYear} 年以降の消失 ${frame.lostHa.toFixed(1)} ha`;
+  if (tl.projection.disappearYear != null && frame.mode === 'pred') s += `<br>予測消失年 ${tl.projection.disappearYear.toFixed(0)} 年`;
+  $('hudStats').innerHTML = s;
+}
+function modelName(m) { return { linear: '線形', exp: '指数', last: '最終区間', manual: '手動年率' }[m] || m; }
+
+// ---------- タイムライン UI ----------
+const chart = new AreaChart($('chart'), $('chartTip'));
+chart.onSeek = (y) => { setYear(Math.round(y * 2) / 2); };
+
+function setYear(y) {
+  const tl = state.timeline; if (!tl) return;
+  state.year = Math.min(tl.xMax, Math.max(tl.xMin, y));
+  requestRender();
+}
+function updateTimelineUI() {
+  const tl = state.timeline; const sl = $('yearSlider');
+  sl.min = tl.xMin; sl.max = tl.xMax; sl.step = 0.5; sl.value = state.year;
+  const ticks = $('ticks'); ticks.innerHTML = '';
+  const place = (yr) => `${((yr - tl.xMin) / (tl.xMax - tl.xMin)) * 100}%`;
+  for (const s of tl.scenes) {
+    const el = document.createElement('div'); el.className = 'tick'; el.style.left = place(s.year);
+    el.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.title = s.label || s.id;
+    el.addEventListener('click', () => setYear(s.year)); ticks.appendChild(el);
+  }
+  const dy = tl.projection.disappearYear;
+  if (dy != null && dy > tl.start.year && dy <= tl.xMax) {
+    const el = document.createElement('div'); el.className = 'tick disappear'; el.style.left = place(dy); el.textContent = `消失 ${dy.toFixed(0)}`;
+    el.addEventListener('click', () => setYear(Math.ceil(dy * 2) / 2)); ticks.appendChild(el);
+  }
+}
+function observedAreaAt(t) {
+  const sc = state.timeline.scenes;
+  if (t <= sc[0].year) return sc[0].stats.buffer;
+  for (let k = 0; k + 1 < sc.length; k++) {
+    if (t <= sc[k + 1].year) { const f = (t - sc[k].year) / Math.max(1e-9, sc[k + 1].year - sc[k].year); return sc[k].stats.buffer + f * (sc[k + 1].stats.buffer - sc[k].stats.buffer); }
+  }
+  return sc[sc.length - 1].stats.buffer;
+}
+function updateChart() {
+  const tl = state.timeline;
+  chart.setData({
+    observed: tl.scenes.map(s => ({ year: s.year, area: s.stats.buffer, label: s.label })),
+    projection: tl.trend.ok ? { from: tl.start.year, to: tl.xMax, areaAt: (t) => tl.projection.areaAt(t) } : null,
+    thresholdHa: tl.thresholdHa, xMin: tl.xMin, xMax: tl.xMax, currentYear: state.year,
+    disappearYear: tl.projection.disappearYear != null && tl.projection.disappearYear > tl.start.year ? tl.projection.disappearYear : null,
+    lastObservedYear: tl.start.year,
+    areaFn: (t) => (t > tl.start.year ? tl.projection.areaAt(t) : observedAreaAt(t)),
+  });
+}
+
+// 再生
+function tick(ts) {
+  if (!state.playing) return;
+  const dt = state.lastTs ? (ts - state.lastTs) / 1000 : 0; state.lastTs = ts;
+  const speed = Number($('speed').value);
+  let y = state.year + dt * speed;
+  const tl = state.timeline;
+  if (y >= tl.xMax) {
+    if (state.recording) { y = tl.xMax; state.year = y; render(); stopRecording(); return; }
+    if ($('loop').checked) y = tl.xMin; else { y = tl.xMax; state.year = y; render(); togglePlay(false); return; }
+  }
+  state.year = y; render();
+  requestAnimationFrame(tick);
+}
+function togglePlay(on) {
+  state.playing = on == null ? !state.playing : on;
+  $('btnPlay').textContent = state.playing ? '❚❚ 一時停止' : '▶ 再生';
+  if (state.playing) { if (state.year >= state.timeline.xMax - 1e-9) state.year = state.timeline.xMin; state.lastTs = 0; requestAnimationFrame(tick); }
+}
+
+// ---------- サイドパネル ----------
+function bindRange(id, valId, get, set, fmt = (v) => v) {
+  const el = $(id), val = $(valId);
+  const refresh = () => { el.value = get(); if (val) val.textContent = fmt(Number(el.value)); };
+  el.addEventListener('input', () => { set(Number(el.value)); if (val) val.textContent = fmt(Number(el.value)); });
+  refresh(); return refresh;
+}
+function bindCheck(id, get, set) { const el = $(id); el.checked = !!get(); el.addEventListener('change', () => set(el.checked)); }
+
+function setupDisplayPanel() {
+  const d = state.display;
+  bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
+  bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showForest', () => d.showForest, (v) => { d.showForest = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showBuilt', () => d.showBuilt, (v) => { d.showBuilt = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showWater', () => d.showWater, (v) => { d.showWater = v; save(); syncLegend(); requestRender(); });
+  bindCheck('crossfade', () => d.crossfade, (v) => { d.crossfade = v; save(); requestRender(); });
+  bindCheck('fixLatest', () => d.fixLatest, (v) => { d.fixLatest = v; save(); requestRender(); });
+  bindCheck('showOverlay', () => d.showOverlay !== false, (v) => { d.showOverlay = v; requestRender(); });
+  $('btnFit').addEventListener('click', fitView);
+  syncLegend();
+}
+function syncLegend() {
+  const d = state.display;
+  $('legLost').hidden = !d.showLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+}
+
+function renderSceneTable() {
+  const tb = $('sceneRows'); tb.innerHTML = '';
+  for (const s of state.scenes.slice().sort((a, b) => a.year - b.year)) {
+    const tr = document.createElement('tr'); if (s.id === state.selectedId) tr.className = 'selected';
+    tr.innerHTML = `<td><input type="radio" name="sel" ${s.id === state.selectedId ? 'checked' : ''}></td><td>${esc(s.id)}</td><td><input type="number" class="yr" value="${s.year}" step="1"></td><td><input type="text" class="lb" value="${esc(s.label || '')}"></td><td><button class="del" title="この時期を除外">×</button></td>`;
+    tr.querySelector('input[type=radio]').addEventListener('change', () => { state.selectedId = s.id; renderSceneTable(); refreshParamPanel(); });
+    tr.querySelector('.yr').addEventListener('change', (e) => { const y = Number(e.target.value); if (Number.isFinite(y)) { s.year = y; s.estimated = false; save(); afterScenesChanged(); } });
+    tr.querySelector('.lb').addEventListener('change', (e) => { s.label = e.target.value; save(); rebuildTimeline(); requestRender(); });
+    tr.querySelector('.del').addEventListener('click', () => {
+      if (state.scenes.length <= 1) return alert('最後の 1 時期は削除できません');
+      if (!confirm(`${s.year} 年（${s.label || s.id}）を除外しますか？`)) return;
+      state.scenes = state.scenes.filter(x => x !== s);
+      if (state.selectedId === s.id) state.selectedId = state.scenes[0].id;
+      save(); afterScenesChanged(); renderSceneTable(); refreshParamPanel();
+    });
+    tb.appendChild(tr);
+  }
+  const est = state.scenes.filter(s => s.estimated);
+  $('yearNote').innerHTML = est.length ? `<span class="warn">※ 「?」付きの撮影年は画像の見た目からの推定値です（${est.map(s => s.id).join(', ')}）。実際の撮影年に修正してください。</span>` : '';
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function afterScenesChanged() { rebuildStartOptions(); rebuildTimeline(); renderSceneTable(); requestRender(); }
+
+function selectedScene() { return state.scenes.find(s => s.id === state.selectedId) || state.scenes[0]; }
+let paramRefreshers = [];
+function setupParamPanel() {
+  const set = (key) => (v) => { const s = selectedScene(); if (!s) return; s.params = { ...s.params, [key]: v }; save(); scheduleSceneRecompute(s); };
+  paramRefreshers = [
+    bindRange('pBias', 'pBiasVal', () => selectedScene()?.cls?.resolved.bias ?? 0, set('bias'), (v) => (v > 0 ? '+' : '') + v.toFixed(2)),
+    bindRange('pTex', 'pTexVal', () => selectedScene()?.cls?.resolved.texRadius ?? 2, set('texRadius'), (v) => v.toFixed(0)),
+    bindRange('pForest', 'pForestVal', () => selectedScene()?.cls?.resolved.forestMax ?? 100, set('forestMax'), (v) => v.toFixed(0)),
+    bindRange('pBuilt', 'pBuiltVal', () => selectedScene()?.cls?.resolved.builtMin ?? 170, set('builtMin'), (v) => (v >= 256 ? 'なし' : v.toFixed(0))),
+    bindRange('pChroma', 'pChromaVal', () => selectedScene()?.cls?.resolved.builtChromaMax ?? 24, set('builtChromaMax'), (v) => v.toFixed(0)),
+    bindRange('pSmooth', 'pSmoothVal', () => selectedScene()?.cls?.resolved.smooth ?? 3, set('smooth'), (v) => v.toFixed(0)),
+    bindRange('pClean', 'pCleanVal', () => selectedScene()?.cls?.resolved.clean ?? 2, set('clean'), (v) => v.toFixed(0)),
+    bindRange('pMin', 'pMinVal', () => selectedScene()?.cls?.resolved.minRegionPx ?? 80, set('minRegionPx'), (v) => v.toFixed(0)),
+  ];
+  const coast = $('pCoast');
+  coast.addEventListener('change', () => { const s = selectedScene(); s.params = { ...s.params, coastExclude: coast.checked }; save(); scheduleSceneRecompute(s); });
+  paramRefreshers.push(() => { coast.checked = selectedScene()?.cls?.resolved.coastExclude !== false; });
+  setupSampleTools();
+  $('btnAuto').addEventListener('click', () => { const s = selectedScene(); s.params = { ...s.params, forestMax: null }; save(); recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); });
+  $('btnAutoAll').addEventListener('click', () => { for (const s of state.scenes) { s.params = { ...s.params, forestMax: null }; recomputeScene(s); } save(); rebuildTimeline(); refreshParamPanel(); requestRender(); });
+}
+function refreshParamPanel() {
+  const s = selectedScene(); if (!s) return;
+  $('paramTarget').innerHTML = `対象: <b>${s.year} 年 ${esc(s.label || s.id)}</b>${s.feat?.grayscale ? '（モノクロ画像）' : ''} ／ 分類方式: ${s.cls?.useGauss ? 'サンプルによる最近傍プロトタイプ判定' : '<span class="warn">輝度しきい値（森林・開放地のサンプルが不足）</span>'}`;
+  for (const r of paramRefreshers) r();
+  const sh = state.samples.shared, own = state.samples.byScene[s.id] || { forest: [], open: [], built: [] };
+  const fmt = (o) => ['forest', 'open', 'built'].map(c => `${SAMPLE_LABELS[c]} ${(o[c] || []).length}`).join('・');
+  $('sampleInfo').textContent = `共通サンプル: ${fmt(sh)} ／ この時期のサンプル: ${fmt(own)}`;
+}
+function setupSampleTools() {
+  const tools = $('sampleTools');
+  tools.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const cls = b.dataset.cls;
+    state.sampleTool.mode = state.sampleTool.mode === cls ? null : cls;
+    tools.querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.cls === state.sampleTool.mode));
+    viewer.classList.toggle('drawing', !!state.sampleTool.mode);
+    if (state.sampleTool.mode) { state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('brushMode').value = '0'; state.brush.mode = 0; viewer.classList.remove('brush'); }
+    requestRender();
+  }));
+  bindRange('sampleRadius', 'sampleRadiusVal', () => state.sampleTool.radius, (v) => { state.sampleTool.radius = v; }, (v) => v.toFixed(0));
+  bindCheck('sampleShared', () => state.sampleTool.shared, (v) => { state.sampleTool.shared = v; });
+  bindCheck('sampleShow', () => state.sampleTool.show, (v) => { state.sampleTool.show = v; requestRender(); });
+  $('btnSampleClearScene').addEventListener('click', () => { const s = selectedScene(); if (!confirm(`${s.year} 年のサンプルをすべて削除しますか？`)) return; delete state.samples.byScene[s.id]; save(); recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); });
+  $('btnSampleClearShared').addEventListener('click', () => { if (!confirm('全時期に共通のサンプルをすべて削除しますか？（各時期は個別サンプルかしきい値ルールで判定されます）')) return; state.samples.shared = { forest: [], open: [], built: [] }; save(); recomputeAllScenes(); });
+}
+function recomputeAllScenes() { for (const s of state.scenes) recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); }
+function sampleClick(p) {
+  const s = selectedScene(); if (!s) return;
+  const mode = state.sampleTool.mode;
+  if (Math.abs(state.year - s.year) > 1e-6 && !state.sampleTool.shared) state.year = s.year;
+  let touchedShared = false;
+  if (mode === 'delete') {
+    const lists = [['shared', state.samples.shared], ['own', state.samples.byScene[s.id] || {}]];
+    let best = null;
+    for (const [kind, o] of lists) for (const cls of ['forest', 'open', 'built']) (o[cls] || []).forEach((c, idx) => {
+      const d = Math.hypot(c.x - p.x, c.y - p.y); if (d <= Math.max(c.r, 6) && (!best || d < best.d)) best = { d, kind, cls, idx, o };
+    });
+    if (!best) return;
+    best.o[best.cls].splice(best.idx, 1); touchedShared = best.kind === 'shared';
+  } else {
+    const c = { x: Math.round(p.x), y: Math.round(p.y), r: state.sampleTool.radius };
+    if (state.sampleTool.shared) { state.samples.shared[mode].push(c); touchedShared = true; }
+    else sceneSamples(s.id)[mode].push(c);
+  }
+  save();
+  if (touchedShared) recomputeAllScenes(); else { recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); }
+}
+let recomputeTimer = null;
+function scheduleSceneRecompute(s) {
+  clearTimeout(recomputeTimer);
+  recomputeTimer = setTimeout(() => { recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); }, 120);
+}
+
+function setupBufferPanel() {
+  bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '全域'));
+  $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
+  $('btnAoiClear').addEventListener('click', () => { state.aoiPoints = []; state.aoiMask = null; state.aoiDrawing = false; $('btnAoi').classList.remove('active'); viewer.classList.remove('drawing'); save(); recomputeAllBuffers(); });
+  const bm = $('brushMode'); bm.addEventListener('change', () => { state.brush.mode = Number(bm.value); viewer.classList.toggle('brush', state.brush.mode !== 0); });
+  bindRange('brushSize', 'brushSizeVal', () => state.brush.size, (v) => { state.brush.size = v; }, (v) => v.toFixed(0));
+  $('btnCorrClear').addEventListener('click', () => { const s = selectedScene(); s.correction = null; save(); recomputeBuffer(s); rebuildTimeline(); requestRender(); });
+}
+let bufferTimer = null;
+function scheduleBufferRecompute() { clearTimeout(bufferTimer); bufferTimer = setTimeout(recomputeAllBuffers, 120); }
+function recomputeAllBuffers() { for (const s of state.scenes) if (s.cls) recomputeBuffer(s); rebuildTimeline(); requestRender(); }
+function finishAoi() {
+  state.aoiDrawing = false; $('btnAoi').classList.remove('active'); viewer.classList.remove('drawing');
+  // ダブルクリックで重複した頂点を除く
+  state.aoiPoints = state.aoiPoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
+  state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null;
+  if (!state.aoiMask) state.aoiPoints = [];
+  save(); recomputeAllBuffers();
+}
+
+function setupSimPanel() {
+  const sim = state.sim;
+  const model = $('model'); model.value = sim.model || 'linear';
+  const syncManual = () => { $('manualRow').hidden = model.value !== 'manual'; };
+  model.addEventListener('change', () => { sim.model = model.value; syncManual(); save(); rebuildTimeline(); requestRender(); }); syncManual();
+  const mr = $('manualRate'); mr.value = sim.manualRatePct ?? -2; mr.addEventListener('change', () => { sim.manualRatePct = Number(mr.value); save(); rebuildTimeline(); requestRender(); });
+  $('startScene').addEventListener('change', (e) => { sim.startId = e.target.value === 'latest' ? null : e.target.value; save(); rebuildTimeline(); requestRender(); });
+  bindRange('threshold', 'thresholdVal', () => sim.thresholdPct, (v) => { sim.thresholdPct = v; save(); rebuildTimeline(); requestRender(); }, (v) => `${v}%`);
+  bindRange('jitter', 'jitterVal', () => sim.jitterM, (v) => { sim.jitterM = v; save(); scheduleTimelineRebuild(); }, (v) => v.toFixed(0));
+  bindRange('protect', 'protectVal', () => sim.protectM, (v) => { sim.protectM = v; save(); scheduleTimelineRebuild(); }, (v) => v.toFixed(0));
+  const seed = $('seed'); seed.value = sim.seed ?? 1; seed.addEventListener('change', () => { sim.seed = Number(seed.value) | 0; save(); rebuildTimeline(); requestRender(); });
+}
+let tlTimer = null;
+function scheduleTimelineRebuild() { clearTimeout(tlTimer); tlTimer = setTimeout(() => { rebuildTimeline(); requestRender(); }, 150); }
+function rebuildStartOptions() {
+  const sel = $('startScene'); const cur = state.sim.startId || 'latest';
+  sel.innerHTML = '<option value="latest">最新の観測時期</option>' + sortedScenes().map(s => `<option value="${esc(s.id)}">${s.year} 年 ${esc(s.label || s.id)}</option>`).join('');
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'latest';
+}
+function updateSimReadout() {
+  const tl = state.timeline; const el = $('simReadout');
+  const pr = tl.projection, tr = tl.trend, sc = pr.sched;
+  const rows = [];
+  rows.push(['起点', `${tl.start.year} 年（${tl.start.stats.buffer.toFixed(1)} ha）`]);
+  rows.push(['傾向線の点数', `${tr.points ?? '-'} 時期`]);
+  rows.push(['変化率（起点）', tr.ok ? `${sc.rateHa >= 0 ? '+' : ''}${sc.rateHa.toFixed(2)} ha/年（${sc.ratePct.toFixed(2)} %/年）` : '—']);
+  rows.push(['決定係数 R²', tr.r2 != null ? tr.r2.toFixed(3) : '—']);
+  rows.push(['消失判定面積', `${tl.thresholdHa.toFixed(1)} ha（${tl.scenes[0].year} 年の ${state.sim.thresholdPct}%）`]);
+  const dy = pr.disappearYear;
+  rows.push(['予測消失年', dy != null && dy > tl.start.year ? `<span class="big">${dy.toFixed(0)} 年</span>（起点から ${(dy - tl.start.year).toFixed(0)} 年後）` : `<span class="warn">${tl.note || '—'}</span>`]);
+  el.innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+function updateStats() {
+  const tl = state.timeline; const tb = $('statRows'); tb.innerHTML = '';
+  let prev = null;
+  for (const s of tl.scenes) {
+    const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${s.year}${s.estimated ? '?' : ''}</td><td class="num">${s.stats.buffer.toFixed(1)}</td><td class="num">${s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '-'}</td><td class="num">${s.stats.forest.toFixed(1)}</td><td class="num">${rate == null ? '—' : (rate >= 0 ? '+' : '') + rate.toFixed(2)}</td>`;
+    tb.appendChild(tr); prev = s;
+  }
+  $('scaleNote').textContent = `縮尺 ${state.mPerPx.toFixed(3)} m/px（スケールバー ${CFG.scale?.barMeters} m = ${CFG.scale?.barPx} px）、1 画素 = ${(state.pxAreaHa * 10000).toFixed(2)} m²、陸域 ${tl.scenes[0].stats.land.toFixed(1)} ha${state.aoiMask ? '（解析範囲内）' : ''}`;
+}
+
+// ---------- ビューア操作 ----------
+function setupViewer() {
+  let dragging = false, lastX = 0, lastY = 0, moved = false;
+  viewer.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    viewer.setPointerCapture(e.pointerId);
+    lastX = e.clientX; lastY = e.clientY; moved = false;
+    if (state.aoiDrawing || state.sampleTool.mode) return;
+    if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
+    dragging = true; viewer.style.cursor = 'grabbing';
+  });
+  viewer.addEventListener('pointermove', (e) => {
+    if (state.brush.painting) { paintAt(e); return; }
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
+    if (Math.abs(dx) + Math.abs(dy) > 0) moved = true;
+    state.view.tx += dx; state.view.ty += dy; requestRender();
+  });
+  const up = (e) => {
+    if (state.brush.painting) { state.brush.painting = false; const s = selectedScene(); save(); recomputeBuffer(s); rebuildTimeline(); requestRender(); }
+    dragging = false; viewer.style.cursor = '';
+  };
+  viewer.addEventListener('pointerup', up); viewer.addEventListener('pointercancel', up);
+  viewer.addEventListener('click', (e) => {
+    if (moved) return;
+    const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
+    if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
+    if (state.sampleTool.mode) { sampleClick(p); return; }
+    if (!state.aoiDrawing) return;
+    state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();
+  });
+  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } });
+  viewer.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const r = viewer.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const f = Math.pow(1.0015, -e.deltaY); const v = state.view;
+    const ns = Math.min(40, Math.max(0.2, v.scale * f)); const k = ns / v.scale;
+    v.tx = sx - (sx - v.tx) * k; v.ty = sy - (sy - v.ty) * k; v.scale = ns; requestRender();
+  }, { passive: false });
+  window.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
+    else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
+    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
+  });
+  new ResizeObserver(() => { fitView(); chart.draw(); }).observe($('viewerWrap'));
+}
+function paintAt(e) {
+  const s = selectedScene(); if (!s || !s.buffer) return;
+  // 観測時期の表示中でなければ、その時期へ移動して塗る
+  if (Math.abs(state.year - s.year) > 1e-6) state.year = s.year;
+  if (!s.correction) s.correction = new Int8Array(state.W * state.H);
+  const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
+  const rad = state.brush.size, v = state.brush.mode;
+  const x0 = Math.max(0, Math.floor(p.x - rad)), x1 = Math.min(state.W - 1, Math.ceil(p.x + rad));
+  const y0 = Math.max(0, Math.floor(p.y - rad)), y1 = Math.min(state.H - 1, Math.ceil(p.y + rad));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if ((x - p.x) ** 2 + (y - p.y) ** 2 > rad * rad) continue;
+    const i = y * state.W + x; s.correction[i] = v;
+    s.buffer[i] = v > 0 ? (s.cls.land[i] && (!state.aoiMask || state.aoiMask[i]) ? 1 : 0) : 0;
+  }
+  requestRender();
+}
+
+// ---------- 追加画像 / 入出力 ----------
+function setupIO() {
+  const hint = $('dropHint');
+  hint.addEventListener('dragover', (e) => { e.preventDefault(); hint.classList.add('over'); });
+  hint.addEventListener('dragleave', () => hint.classList.remove('over'));
+  hint.addEventListener('drop', (e) => { e.preventDefault(); hint.classList.remove('over'); addFiles(e.dataTransfer.files); });
+  $('fileInput').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
+  $('btnPng').addEventListener('click', exportPng);
+  $('btnCsv').addEventListener('click', exportCsv);
+  $('btnJson').addEventListener('click', () => download(new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' }), 'forest-buffer-settings.json'));
+  $('jsonInput').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; save(); recomputeAll(); }
+    catch (err) { alert('設定を読み込めませんでした: ' + err.message); }
+    e.target.value = '';
+  });
+  $('btnVideo').addEventListener('click', startRecording);
+  $('btnReset').addEventListener('click', () => { if (confirm('保存した設定・手動修正をすべて消去して初期状態に戻しますか？')) { localStorage.removeItem(STORAGE_KEY); location.reload(); } });
+}
+async function addFiles(files) {
+  const list = [...files].filter(f => f.type.startsWith('image/'));
+  if (!list.length) return;
+  const maxYear = Math.max(...state.scenes.map(s => s.year));
+  let k = 0;
+  for (const f of list) {
+    const url = URL.createObjectURL(f);
+    try {
+      const img = await loadImage(url);
+      const yr = prompt(`「${f.name}」の撮影年を入力してください`, String(maxYear + 10 * (++k)));
+      if (yr === null) continue;
+      const id = f.name.replace(/\.[^.]+$/, '');
+      const s = { id: state.scenes.some(s => s.id === id) ? id + '_' + Date.now() : id, file: null, year: Number(yr) || maxYear + 10 * k, label: f.name, estimated: false, params: {} };
+      await prepareScene(s, img);
+      if (!state.water) computeWater();
+      recomputeScene(s);
+      state.scenes.push(s);
+    } catch (err) { alert(err.message); }
+    finally { URL.revokeObjectURL(url); }
+  }
+  afterScenesChanged(); refreshParamPanel();
+  $('exportNote').textContent = '追加した画像はこのセッション中だけ有効です（再読み込みで消えます）。恒久的に使う場合は data/images に置き、data/config.js に登録してください。';
+}
+function recomputeAll() {
+  for (const s of state.scenes) recomputeScene(s);
+  afterScenesChanged(); refreshParamPanel();
+  for (const r of paramRefreshers) r();
+}
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function renderToCanvas(W, H) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const ctx = c.getContext('2d');
+  const frame = computeFrame(state.year);
+  drawBase(ctx, frame, W, H);
+  if (state.display.showOverlay !== false) ctx.drawImage(buildOverlay(frame), 0, 0);
+  ctx.font = 'bold 34px system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6; ctx.textBaseline = 'top';
+  ctx.fillText(`${Math.floor(frame.t)} 年`, 14, 12);
+  ctx.font = '16px system-ui, sans-serif';
+  ctx.fillText(`森林緩衝帯 ${frame.areaHa.toFixed(1)} ha  ${frame.mode === 'pred' ? '［予測］' : frame.mode === 'interp' ? '［補間］' : '［観測］'}`, 14, 54);
+  return c;
+}
+function exportPng() {
+  renderToCanvas(state.W, state.H).toBlob((b) => download(b, `forest-buffer_${Math.floor(state.year)}.png`), 'image/png');
+}
+function exportCsv() {
+  const tl = state.timeline; if (!tl) return;
+  const lines = ['﻿区分,ID,年,ラベル,陸域_ha,緩衝帯_ha,緩衝帯_陸域比_pct,森林_ha,人工物_ha,増減_ha_per_年'];
+  let prev = null;
+  for (const s of tl.scenes) {
+    const rate = prev && s.year !== prev.year ? (s.stats.buffer - prev.stats.buffer) / (s.year - prev.year) : '';
+    lines.push(['観測', s.id, s.year, (s.label || '').replace(/,/g, ' '), s.stats.land.toFixed(2), s.stats.buffer.toFixed(2), s.stats.land > 0 ? (s.stats.buffer / s.stats.land * 100).toFixed(1) : '', s.stats.forest.toFixed(2), s.stats.built.toFixed(2), rate === '' ? '' : rate.toFixed(3)].join(','));
+    prev = s;
+  }
+  if (tl.trend.ok) {
+    for (let y = Math.ceil(tl.start.year / 5) * 5; y <= tl.xMax; y += 5) {
+      if (y <= tl.start.year) continue;
+      lines.push(['予測', '', y, modelName(state.sim.model), '', tl.projection.areaAt(y).toFixed(2), tl.scenes[0].stats.land > 0 ? (tl.projection.areaAt(y) / tl.scenes[0].stats.land * 100).toFixed(1) : '', '', '', tl.projection.sched.rateHa.toFixed(3)].join(','));
+    }
+    if (tl.projection.disappearYear != null) lines.push(['予測消失年', '', tl.projection.disappearYear.toFixed(1), `消失判定 ${tl.thresholdHa.toFixed(2)} ha`, '', '', '', '', '', ''].join(','));
+  }
+  download(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }), 'forest-buffer-areas.csv');
+}
+function startRecording() {
+  if (state.recording) return;
+  if (!window.MediaRecorder || !viewer.captureStream) return alert('このブラウザは動画の書き出しに対応していません（Chrome / Edge / Firefox をお使いください）');
+  const stream = viewer.captureStream(30);
+  const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
+  const chunks = [];
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = () => { download(new Blob(chunks, { type: 'video/webm' }), 'forest-buffer-simulation.webm'); state.recording = null; $('btnVideo').disabled = false; $('exportNote').textContent = '動画を保存しました。'; };
+  state.recording = rec; $('btnVideo').disabled = true; $('exportNote').textContent = '録画中… 再生が終わると自動的に保存されます。';
+  $('loop').checked = false; state.year = state.timeline.xMin; render();
+  rec.start(200);
+  togglePlay(true);
+}
+function stopRecording() { togglePlay(false); if (state.recording) setTimeout(() => state.recording && state.recording.stop(), 300); }
+
+// ---------- 初期化 ----------
+async function init() {
+  const status = $('status');
+  try {
+    state.scenes = (CFG.scenes || []).map(s => ({ ...s, params: { ...(s.params || {}) } }));
+    applySaved(loadSaved());
+    if (!state.scenes.length) throw new Error('data/config.js に画像が登録されていません');
+    const imgs = await Promise.all(state.scenes.map(s => loadImage(s.file)));
+    state.W = imgs[0].naturalWidth; state.H = imgs[0].naturalHeight;
+    const sc = CFG.scale || { barPx: 1, barMeters: 1 };
+    state.mPerPx = sc.barMeters / sc.barPx; state.pxAreaHa = state.mPerPx * state.mPerPx / 10000;
+    status.textContent = '分類中…';
+    await new Promise(r => setTimeout(r, 0));
+    for (let i = 0; i < state.scenes.length; i++) await prepareScene(state.scenes[i], imgs[i]);
+    computeWater();
+    for (const s of state.scenes) { if (s.params.forestMax === undefined) s.params.forestMax = null; recomputeScene(s); }
+    state.selectedId = state.scenes[state.scenes.length - 1].id;
+    state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null;
+    if (state.aoiMask) for (const s of state.scenes) recomputeBuffer(s);
+    document.title = CFG.title || document.title; $('title').textContent = CFG.title || $('title').textContent;
+    setupDisplayPanel(); setupParamPanel(); setupBufferPanel(); setupSimPanel(); setupIO(); setupViewer();
+    $('btnPlay').addEventListener('click', () => togglePlay());
+    $('btnPrev').addEventListener('click', () => { const ys = state.timeline.scenes.map(s => s.year).filter(y => y < state.year - 1e-6); setYear(ys.length ? ys[ys.length - 1] : state.timeline.xMin); });
+    $('btnNext').addEventListener('click', () => { const ys = state.timeline.scenes.map(s => s.year).filter(y => y > state.year + 1e-6); setYear(ys.length ? ys[0] : state.timeline.xMax); });
+    $('yearSlider').addEventListener('input', (e) => { if (state.playing) togglePlay(false); setYear(Number(e.target.value)); });
+    rebuildStartOptions();
+    state.year = Math.min(...state.scenes.map(s => s.year));
+    rebuildTimeline(); renderSceneTable(); refreshParamPanel();
+    fitView(); render();
+    status.textContent = `${state.W}×${state.H} px · ${state.mPerPx.toFixed(2)} m/px · ${state.scenes.length} 時期`;
+    $('loading').hidden = true;
+  } catch (err) {
+    console.error(err);
+    $('loading').innerHTML = `<div style="max-width:560px;text-align:center;line-height:1.6">読み込みに失敗しました。<br>${esc(err.message)}<br><small>このツールは http サーバー経由で開く必要があります（例: <code>npx serve</code> または <code>python3 -m http.server</code>）。</small></div>`;
+    status.textContent = 'エラー';
+  }
+}
+
+// 自動化・テスト用の小さな API
+window.SIP = {
+  state,
+  setYear: (y) => { setYear(y); render(); },
+  getFrame: () => lastFrame && { year: lastFrame.t, mode: lastFrame.mode, areaHa: lastFrame.areaHa, lostHa: lastFrame.lostHa },
+  getStats: () => state.timeline && state.timeline.scenes.map(s => ({ id: s.id, year: s.year, label: s.label, ...s.stats, useGauss: s.cls.useGauss, bias: s.cls.resolved.bias })),
+  getProjection: () => state.timeline && { start: state.timeline.start.year, disappearYear: state.timeline.projection.disappearYear, rateHa: state.timeline.projection.sched.rateHa, ratePct: state.timeline.projection.sched.ratePct, r2: state.timeline.trend.r2, thresholdHa: state.timeline.thresholdHa, xMax: state.timeline.xMax },
+  renderFrame: (W, H) => renderToCanvas(W || state.W, H || state.H).toDataURL('image/png'),
+  ready: init(),
+};
