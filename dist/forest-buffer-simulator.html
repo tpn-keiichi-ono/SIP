@@ -243,8 +243,9 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
         <p class="note"><b>住宅地・集落</b>は生活空間として緩衝帯に含めません（田畑・人工物は分類結果から自動的に生活空間になります）。住居の点の周囲と、下で描いた多角形の範囲が生活空間になります（白で表示）。「人工物の周囲」を 0 より大きくすると、判定された建物・道路の周囲も自動的に生活空間に含めます。</p>
         <div class="ctl"><label for="settleM">人工物の周囲 (m)</label><input type="range" id="settleM" min="0" max="150" step="5" value="0"><span class="val" id="settleMVal">なし</span></div>
-        <p class="note"><b>住居の点</b>：建物の屋根をクリックして点を置きます。点の周囲「住居の半径」が生活空間になります。</p>
-        <div class="btns" id="houseTools"><button data-mode="add">＋住居の点</button><button data-mode="delete">点を削除</button><button id="btnHousesClear">すべての点を削除</button></div>
+        <p class="note"><b>住居の点</b>：建物の屋根をクリックして点を置きます。点の周囲「住居の半径」が生活空間になります。住居は時期によって変わるため、点は時期ごとに持ちます（白＝全時期共通、淡黄＝その時期の点）。</p>
+        <div class="btns" id="houseTools"><button data-mode="add">＋住居の点</button><button data-mode="delete">点を削除</button><button id="btnHousesClear">この時期の点を削除</button></div>
+        <div class="checks"><label><input type="checkbox" id="houseShared"> 全時期に共通の住居として登録（既定は選択中の時期だけ）</label></div>
         <div class="ctl"><label for="houseRadius">住居の半径 (m)</label><input type="range" id="houseRadius" min="5" max="60" step="5" value="20"><span class="val" id="houseRadiusVal">20 m</span></div>
         <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
         <p class="note" id="settleInfo"></p>
@@ -340,8 +341,15 @@ window.SIP_CONFIG = {
   settlement: {
     autoM: 0, // 0 = 住居の点と多角形だけを生活空間とする（岩場などの誤検出を巻き込まないため）
     houseRadiusM: 20, // 住居の点の周囲をこの半径 (m) だけ生活空間とみなす
-    // 住居の位置（最新写真で 1 棟ずつ確認した屋根の中心。画面上で追加・削除できる）
-    houses: [{ x: 512, y: 252 }, { x: 527, y: 298 }, { x: 528, y: 322 }, { x: 552, y: 292 }, { x: 596, y: 301 }, { x: 528, y: 346 }, { x: 547, y: 352 }, { x: 533, y: 363 }, { x: 553, y: 363 }, { x: 505, y: 383 }, { x: 511, y: 394 }, { x: 527, y: 392 }, { x: 548, y: 410 }, { x: 565, y: 400 }, { x: 575, y: 405 }, { x: 574, y: 415 }, { x: 503, y: 425 }, { x: 500, y: 433 }, { x: 491, y: 437 }, { x: 526, y: 430 }, { x: 545, y: 428 }, { x: 552, y: 437 }, { x: 562, y: 430 }, { x: 571, y: 432 }, { x: 577, y: 440 }, { x: 567, y: 442 }, { x: 410, y: 440 }, { x: 433, y: 447 }, { x: 447, y: 445 }, { x: 455, y: 455 }, { x: 575, y: 483 }, { x: 590, y: 470 }, { x: 610, y: 455 }, { x: 612, y: 462 }, { x: 713, y: 431 }, { x: 722, y: 426 }, { x: 704, y: 467 }, { x: 225, y: 642 }, { x: 238, y: 662 }, { x: 222, y: 670 }, { x: 925, y: 190 }],
+    // 住居の位置（各時期の写真で屋根を 1 棟ずつ確認した中心座標。houses は全時期共通、housesByScene は時期別。画面上で追加・削除できる）
+    houses: [],
+    housesByScene: {
+      '1': [{ x: 540, y: 293 }, { x: 545, y: 310 }, { x: 537, y: 326 }, { x: 548, y: 336 }, { x: 528, y: 351 }, { x: 541, y: 359 }, { x: 553, y: 366 }, { x: 531, y: 376 }, { x: 506, y: 386 }, { x: 512, y: 396 }, { x: 496, y: 414 }, { x: 511, y: 425 }, { x: 522, y: 436 }, { x: 536, y: 416 }, { x: 546, y: 431 }, { x: 560, y: 441 }, { x: 575, y: 406 }, { x: 571, y: 421 }, { x: 500, y: 447 }, { x: 486, y: 441 }, { x: 466, y: 446 }, { x: 447, y: 441 }, { x: 590, y: 455 }, { x: 605, y: 462 }, { x: 233, y: 650 }],
+      '2': [{ x: 512, y: 302 }, { x: 520, y: 308 }, { x: 535, y: 315 }, { x: 533, y: 335 }, { x: 535, y: 350 }, { x: 545, y: 355 }, { x: 594, y: 302 }, { x: 530, y: 348 }, { x: 555, y: 362 }, { x: 533, y: 366 }, { x: 505, y: 385 }, { x: 512, y: 395 }, { x: 565, y: 392 }, { x: 575, y: 400 }, { x: 527, y: 412 }, { x: 540, y: 410 }, { x: 552, y: 406 }, { x: 568, y: 415 }, { x: 505, y: 428 }, { x: 512, y: 435 }, { x: 528, y: 438 }, { x: 545, y: 440 }, { x: 552, y: 436 }, { x: 570, y: 438 }, { x: 433, y: 442 }, { x: 447, y: 446 }, { x: 400, y: 450 }, { x: 612, y: 428 }, { x: 712, y: 428 }, { x: 205, y: 650 }, { x: 218, y: 657 }, { x: 250, y: 665 }, { x: 220, y: 675 }],
+      '5': [{ x: 515, y: 247 }, { x: 512, y: 302 }, { x: 547, y: 292 }, { x: 535, y: 300 }, { x: 535, y: 315 }, { x: 594, y: 305 }, { x: 532, y: 348 }, { x: 548, y: 357 }, { x: 555, y: 365 }, { x: 530, y: 362 }, { x: 505, y: 386 }, { x: 512, y: 395 }, { x: 560, y: 385 }, { x: 572, y: 395 }, { x: 570, y: 408 }, { x: 578, y: 415 }, { x: 556, y: 410 }, { x: 528, y: 417 }, { x: 508, y: 425 }, { x: 525, y: 438 }, { x: 548, y: 440 }, { x: 570, y: 442 }, { x: 430, y: 442 }, { x: 447, y: 447 }, { x: 447, y: 355 }, { x: 455, y: 364 }, { x: 390, y: 368 }, { x: 716, y: 428 }, { x: 707, y: 435 }, { x: 710, y: 465 }, { x: 228, y: 628 }, { x: 228, y: 643 }, { x: 245, y: 642 }, { x: 235, y: 662 }, { x: 222, y: 675 }],
+      '3': [{ x: 512, y: 307 }, { x: 507, y: 322 }, { x: 535, y: 333 }, { x: 548, y: 302 }, { x: 532, y: 350 }, { x: 555, y: 358 }, { x: 540, y: 368 }, { x: 505, y: 385 }, { x: 512, y: 395 }, { x: 565, y: 392 }, { x: 575, y: 400 }, { x: 560, y: 408 }, { x: 528, y: 418 }, { x: 505, y: 427 }, { x: 550, y: 438 }, { x: 568, y: 443 }, { x: 430, y: 442 }, { x: 447, y: 447 }, { x: 402, y: 445 }, { x: 447, y: 355 }, { x: 455, y: 364 }, { x: 542, y: 487 }, { x: 580, y: 485 }, { x: 716, y: 428 }, { x: 707, y: 435 }, { x: 710, y: 462 }, { x: 205, y: 650 }, { x: 228, y: 645 }, { x: 242, y: 665 }, { x: 226, y: 658 }],
+      '4': [{ x: 512, y: 252 }, { x: 527, y: 298 }, { x: 528, y: 322 }, { x: 552, y: 292 }, { x: 596, y: 301 }, { x: 528, y: 346 }, { x: 547, y: 352 }, { x: 533, y: 363 }, { x: 553, y: 363 }, { x: 505, y: 383 }, { x: 511, y: 394 }, { x: 527, y: 392 }, { x: 548, y: 410 }, { x: 565, y: 400 }, { x: 575, y: 405 }, { x: 574, y: 415 }, { x: 503, y: 425 }, { x: 500, y: 433 }, { x: 491, y: 437 }, { x: 526, y: 430 }, { x: 545, y: 428 }, { x: 552, y: 437 }, { x: 562, y: 430 }, { x: 571, y: 432 }, { x: 577, y: 440 }, { x: 567, y: 442 }, { x: 410, y: 440 }, { x: 433, y: 447 }, { x: 447, y: 445 }, { x: 455, y: 455 }, { x: 575, y: 483 }, { x: 590, y: 470 }, { x: 610, y: 455 }, { x: 612, y: 462 }, { x: 713, y: 431 }, { x: 722, y: 426 }, { x: 704, y: 467 }, { x: 225, y: 642 }, { x: 238, y: 662 }, { x: 222, y: 670 }, { x: 925, y: 190 }],
+    },
     polygons: [],
   },
   // 消失判定 = 最初の観測面積の 5 %、傾向モデル = 線形（推奨）
@@ -1450,8 +1458,8 @@ const state = {
   W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
   scenes: [], water: null,
   aoiPoints: [], aoiMask: null, aoiDrawing: false,
-  settlement: { autoM: CFG.settlement?.autoM ?? 0, houseRadiusM: CFG.settlement?.houseRadiusM ?? 20, houses: (CFG.settlement?.houses || []).map(q => ({ x: q.x, y: q.y })), polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
-  houseTool: null,
+  settlement: normalizeSettlement(CFG.settlement),
+  houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60 },
@@ -1486,6 +1494,14 @@ function samplesFor(s) {
   return merged;
 }
 
+function normalizeSettlement(src) {
+  const pts = (a) => (a || []).map(q => ({ x: q.x, y: q.y }));
+  const by = {};
+  for (const [id, a] of Object.entries(src?.housesByScene || {})) by[id] = pts(a);
+  return { autoM: src?.autoM ?? 0, houseRadiusM: src?.houseRadiusM ?? 20, houses: pts(src?.houses), housesByScene: by, polygons: (src?.polygons || []).map(p => pts(p)) };
+}
+function housesFor(s) { return [...state.settlement.houses, ...(state.settlement.housesByScene[s.id] || [])]; }
+
 // ---------- 永続化 ----------
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
@@ -1514,7 +1530,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
-  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, houseRadiusM: saved.settlement.houseRadiusM ?? state.settlement.houseRadiusM, houses: (saved.settlement.houses || state.settlement.houses).map(q => ({ x: q.x, y: q.y })), polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
+  if (saved.settlement) state.settlement = normalizeSettlement({ ...state.settlement, ...saved.settlement, housesByScene: saved.settlement.housesByScene || state.settlement.housesByScene });
   if (saved.scenes) {
     for (const ss of saved.scenes) {
       const s = state.scenes.find(x => x.id === ss.id);
@@ -1585,13 +1601,13 @@ function settlementMask(s) {
   if (!state.settlePolyMask) {
     state.settlePolyMask = new Uint8Array(n);
     for (const poly of state.settlement.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.settlePolyMask[i] = 1; }
-    const hr = (state.settlement.houseRadiusM || 0) / state.mPerPx;
-    for (const h of state.settlement.houses) {
-      const x0 = Math.max(0, Math.floor(h.x - hr)), x1 = Math.min(state.W - 1, Math.ceil(h.x + hr)), y0 = Math.max(0, Math.floor(h.y - hr)), y1 = Math.min(state.H - 1, Math.ceil(h.y + hr));
-      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - h.x) ** 2 + (y - h.y) ** 2 <= hr * hr) state.settlePolyMask[y * state.W + x] = 1;
-    }
   }
   const out = Uint8Array.from(state.settlePolyMask);
+  const hr = (state.settlement.houseRadiusM || 0) / state.mPerPx;
+  for (const h of housesFor(s)) {
+    const x0 = Math.max(0, Math.floor(h.x - hr)), x1 = Math.min(state.W - 1, Math.ceil(h.x + hr)), y0 = Math.max(0, Math.floor(h.y - hr)), y1 = Math.min(state.H - 1, Math.ceil(h.y + hr));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - h.x) ** 2 + (y - h.y) ** 2 <= hr * hr) out[y * state.W + x] = 1;
+  }
   const r = Math.round((state.settlement.autoM || 0) / state.mPerPx);
   if (r > 0 && s.cls?.built) { const d = dilate(s.cls.built, state.W, state.H, r); for (let i = 0; i < n; i++) if (d[i] && s.cls.land[i]) out[i] = 1; }
   return out;
@@ -1713,12 +1729,12 @@ function waterWithCoast(scene) {
   return coastCache.mask;
 }
 function drawHouses(ctx) {
+  // 表示中の写真（フレームの基準時期）の住居を描く
+  const base = lastFrame?.base || selectedScene(); if (!base) return;
   ctx.save();
-  for (const h of state.settlement.houses) {
-    const q = toScreen(h.x, h.y);
-    ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke();
-  }
+  const draw = (list, fill) => { for (const h of list) { const q = toScreen(h.x, h.y); ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke(); } };
+  draw(state.settlement.houses, '#ffffff');
+  draw(state.settlement.housesByScene[base.id] || [], '#ffe9a8');
   ctx.restore();
 }
 function drawSamples(ctx) {
@@ -1876,7 +1892,7 @@ function renderSceneTable() {
   for (const s of state.scenes.slice().sort((a, b) => a.year - b.year)) {
     const tr = document.createElement('tr'); if (s.id === state.selectedId) tr.className = 'selected';
     tr.innerHTML = `<td><input type="radio" name="sel" ${s.id === state.selectedId ? 'checked' : ''}></td><td>${esc(s.id)}</td><td><input type="number" class="yr" value="${s.year}" step="1"></td><td><input type="text" class="lb" value="${esc(s.label || '')}"></td><td><button class="del" title="この時期を除外">×</button></td>`;
-    tr.querySelector('input[type=radio]').addEventListener('change', () => { state.selectedId = s.id; renderSceneTable(); refreshParamPanel(); });
+    tr.querySelector('input[type=radio]').addEventListener('change', () => { state.selectedId = s.id; renderSceneTable(); refreshParamPanel(); updateSettleInfo(); });
     tr.querySelector('.yr').addEventListener('change', (e) => { const y = Number(e.target.value); if (Number.isFinite(y)) { s.year = y; s.estimated = false; save(); afterScenesChanged(); } });
     tr.querySelector('.lb').addEventListener('change', (e) => { s.label = e.target.value; save(); rebuildTimeline(); requestRender(); });
     tr.querySelector('.del').addEventListener('click', () => {
@@ -1994,7 +2010,8 @@ function setupBufferPanel() {
     if (state.houseTool) { if (state.settleDrawing) finishSettle(); if (state.aoiDrawing) finishAoi(); state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); }
     requestRender();
   }));
-  $('btnHousesClear').addEventListener('click', () => { if (confirm('住居の点をすべて削除しますか？')) { state.settlement.houses = []; settlementChanged(); } });
+  bindCheck('houseShared', () => state.houseShared, (v) => { state.houseShared = v; });
+  $('btnHousesClear').addEventListener('click', () => { const s = selectedScene(); if (confirm(`${s.year} 年の住居の点をすべて削除しますか？（全時期共通の点は残ります）`)) { delete state.settlement.housesByScene[s.id]; settlementChanged(); } });
   $('btnSettleUndo').addEventListener('click', () => { state.settlement.polygons.pop(); settlementChanged(); });
   $('btnSettleClear').addEventListener('click', () => { if (!state.settlement.polygons.length || confirm('描いた生活空間の範囲をすべて削除しますか？')) { state.settlement.polygons = []; settlementChanged(); } });
   updateSettleInfo();
@@ -2014,7 +2031,7 @@ function finishSettle() {
   settlementChanged();
 }
 function settlementChanged() { state.settlePolyMask = null; save(); updateSettleInfo(); recomputeAllBuffers(); }
-function updateSettleInfo() { $('settleInfo').textContent = `住居の点: ${state.settlement.houses.length} 棟 ／ 描いた範囲: ${state.settlement.polygons.length} か所`; }
+function updateSettleInfo() { const s = selectedScene(); const own = s ? (state.settlement.housesByScene[s.id] || []).length : 0; $('settleInfo').textContent = `住居の点: 共通 ${state.settlement.houses.length} 棟 ／ ${s ? s.year + ' 年' : 'この時期'} ${own} 棟 ／ 描いた範囲: ${state.settlement.polygons.length} か所`; }
 function finishAoi() {
   state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
@@ -2126,11 +2143,17 @@ function setupViewer() {
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
     if (state.sampleTool.mode) { sampleClick(p); return; }
-    if (state.houseTool === 'add') { state.settlement.houses.push({ x: Math.round(p.x), y: Math.round(p.y) }); settlementChanged(); return; }
+    if (state.houseTool === 'add') {
+      const s = selectedScene();
+      if (!state.houseShared && Math.abs(state.year - s.year) > 1e-6) state.year = s.year;
+      const list = state.houseShared ? state.settlement.houses : (state.settlement.housesByScene[s.id] ||= []);
+      list.push({ x: Math.round(p.x), y: Math.round(p.y) }); settlementChanged(); return;
+    }
     if (state.houseTool === 'delete') {
-      let best = -1, bd = 8 / state.view.scale + 4;
-      state.settlement.houses.forEach((h, i) => { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = i; } });
-      if (best >= 0) { state.settlement.houses.splice(best, 1); settlementChanged(); }
+      const s = selectedScene();
+      let best = null, bd = 8 / state.view.scale + 4;
+      for (const list of [state.settlement.houses, state.settlement.housesByScene[s.id] || []]) list.forEach((h, i) => { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = { list, i }; } });
+      if (best) { best.list.splice(best.i, 1); settlementChanged(); }
       return;
     }
     if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }

@@ -15,8 +15,8 @@ const state = {
   W: 0, H: 0, mPerPx: 1, pxAreaHa: 0,
   scenes: [], water: null,
   aoiPoints: [], aoiMask: null, aoiDrawing: false,
-  settlement: { autoM: CFG.settlement?.autoM ?? 0, houseRadiusM: CFG.settlement?.houseRadiusM ?? 20, houses: (CFG.settlement?.houses || []).map(q => ({ x: q.x, y: q.y })), polygons: (CFG.settlement?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) },
-  houseTool: null,
+  settlement: normalizeSettlement(CFG.settlement),
+  houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60 },
@@ -51,6 +51,14 @@ function samplesFor(s) {
   return merged;
 }
 
+function normalizeSettlement(src) {
+  const pts = (a) => (a || []).map(q => ({ x: q.x, y: q.y }));
+  const by = {};
+  for (const [id, a] of Object.entries(src?.housesByScene || {})) by[id] = pts(a);
+  return { autoM: src?.autoM ?? 0, houseRadiusM: src?.houseRadiusM ?? 20, houses: pts(src?.houses), housesByScene: by, polygons: (src?.polygons || []).map(p => pts(p)) };
+}
+function housesFor(s) { return [...state.settlement.houses, ...(state.settlement.housesByScene[s.id] || [])]; }
+
 // ---------- 永続化 ----------
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
@@ -79,7 +87,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
-  if (saved.settlement) state.settlement = { autoM: saved.settlement.autoM ?? state.settlement.autoM, houseRadiusM: saved.settlement.houseRadiusM ?? state.settlement.houseRadiusM, houses: (saved.settlement.houses || state.settlement.houses).map(q => ({ x: q.x, y: q.y })), polygons: (saved.settlement.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
+  if (saved.settlement) state.settlement = normalizeSettlement({ ...state.settlement, ...saved.settlement, housesByScene: saved.settlement.housesByScene || state.settlement.housesByScene });
   if (saved.scenes) {
     for (const ss of saved.scenes) {
       const s = state.scenes.find(x => x.id === ss.id);
@@ -150,13 +158,13 @@ function settlementMask(s) {
   if (!state.settlePolyMask) {
     state.settlePolyMask = new Uint8Array(n);
     for (const poly of state.settlement.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.settlePolyMask[i] = 1; }
-    const hr = (state.settlement.houseRadiusM || 0) / state.mPerPx;
-    for (const h of state.settlement.houses) {
-      const x0 = Math.max(0, Math.floor(h.x - hr)), x1 = Math.min(state.W - 1, Math.ceil(h.x + hr)), y0 = Math.max(0, Math.floor(h.y - hr)), y1 = Math.min(state.H - 1, Math.ceil(h.y + hr));
-      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - h.x) ** 2 + (y - h.y) ** 2 <= hr * hr) state.settlePolyMask[y * state.W + x] = 1;
-    }
   }
   const out = Uint8Array.from(state.settlePolyMask);
+  const hr = (state.settlement.houseRadiusM || 0) / state.mPerPx;
+  for (const h of housesFor(s)) {
+    const x0 = Math.max(0, Math.floor(h.x - hr)), x1 = Math.min(state.W - 1, Math.ceil(h.x + hr)), y0 = Math.max(0, Math.floor(h.y - hr)), y1 = Math.min(state.H - 1, Math.ceil(h.y + hr));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - h.x) ** 2 + (y - h.y) ** 2 <= hr * hr) out[y * state.W + x] = 1;
+  }
   const r = Math.round((state.settlement.autoM || 0) / state.mPerPx);
   if (r > 0 && s.cls?.built) { const d = dilate(s.cls.built, state.W, state.H, r); for (let i = 0; i < n; i++) if (d[i] && s.cls.land[i]) out[i] = 1; }
   return out;
@@ -278,12 +286,12 @@ function waterWithCoast(scene) {
   return coastCache.mask;
 }
 function drawHouses(ctx) {
+  // 表示中の写真（フレームの基準時期）の住居を描く
+  const base = lastFrame?.base || selectedScene(); if (!base) return;
   ctx.save();
-  for (const h of state.settlement.houses) {
-    const q = toScreen(h.x, h.y);
-    ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke();
-  }
+  const draw = (list, fill) => { for (const h of list) { const q = toScreen(h.x, h.y); ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke(); } };
+  draw(state.settlement.houses, '#ffffff');
+  draw(state.settlement.housesByScene[base.id] || [], '#ffe9a8');
   ctx.restore();
 }
 function drawSamples(ctx) {
@@ -441,7 +449,7 @@ function renderSceneTable() {
   for (const s of state.scenes.slice().sort((a, b) => a.year - b.year)) {
     const tr = document.createElement('tr'); if (s.id === state.selectedId) tr.className = 'selected';
     tr.innerHTML = `<td><input type="radio" name="sel" ${s.id === state.selectedId ? 'checked' : ''}></td><td>${esc(s.id)}</td><td><input type="number" class="yr" value="${s.year}" step="1"></td><td><input type="text" class="lb" value="${esc(s.label || '')}"></td><td><button class="del" title="この時期を除外">×</button></td>`;
-    tr.querySelector('input[type=radio]').addEventListener('change', () => { state.selectedId = s.id; renderSceneTable(); refreshParamPanel(); });
+    tr.querySelector('input[type=radio]').addEventListener('change', () => { state.selectedId = s.id; renderSceneTable(); refreshParamPanel(); updateSettleInfo(); });
     tr.querySelector('.yr').addEventListener('change', (e) => { const y = Number(e.target.value); if (Number.isFinite(y)) { s.year = y; s.estimated = false; save(); afterScenesChanged(); } });
     tr.querySelector('.lb').addEventListener('change', (e) => { s.label = e.target.value; save(); rebuildTimeline(); requestRender(); });
     tr.querySelector('.del').addEventListener('click', () => {
@@ -559,7 +567,8 @@ function setupBufferPanel() {
     if (state.houseTool) { if (state.settleDrawing) finishSettle(); if (state.aoiDrawing) finishAoi(); state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); }
     requestRender();
   }));
-  $('btnHousesClear').addEventListener('click', () => { if (confirm('住居の点をすべて削除しますか？')) { state.settlement.houses = []; settlementChanged(); } });
+  bindCheck('houseShared', () => state.houseShared, (v) => { state.houseShared = v; });
+  $('btnHousesClear').addEventListener('click', () => { const s = selectedScene(); if (confirm(`${s.year} 年の住居の点をすべて削除しますか？（全時期共通の点は残ります）`)) { delete state.settlement.housesByScene[s.id]; settlementChanged(); } });
   $('btnSettleUndo').addEventListener('click', () => { state.settlement.polygons.pop(); settlementChanged(); });
   $('btnSettleClear').addEventListener('click', () => { if (!state.settlement.polygons.length || confirm('描いた生活空間の範囲をすべて削除しますか？')) { state.settlement.polygons = []; settlementChanged(); } });
   updateSettleInfo();
@@ -579,7 +588,7 @@ function finishSettle() {
   settlementChanged();
 }
 function settlementChanged() { state.settlePolyMask = null; save(); updateSettleInfo(); recomputeAllBuffers(); }
-function updateSettleInfo() { $('settleInfo').textContent = `住居の点: ${state.settlement.houses.length} 棟 ／ 描いた範囲: ${state.settlement.polygons.length} か所`; }
+function updateSettleInfo() { const s = selectedScene(); const own = s ? (state.settlement.housesByScene[s.id] || []).length : 0; $('settleInfo').textContent = `住居の点: 共通 ${state.settlement.houses.length} 棟 ／ ${s ? s.year + ' 年' : 'この時期'} ${own} 棟 ／ 描いた範囲: ${state.settlement.polygons.length} か所`; }
 function finishAoi() {
   state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
@@ -691,11 +700,17 @@ function setupViewer() {
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
     if (state.sampleTool.mode) { sampleClick(p); return; }
-    if (state.houseTool === 'add') { state.settlement.houses.push({ x: Math.round(p.x), y: Math.round(p.y) }); settlementChanged(); return; }
+    if (state.houseTool === 'add') {
+      const s = selectedScene();
+      if (!state.houseShared && Math.abs(state.year - s.year) > 1e-6) state.year = s.year;
+      const list = state.houseShared ? state.settlement.houses : (state.settlement.housesByScene[s.id] ||= []);
+      list.push({ x: Math.round(p.x), y: Math.round(p.y) }); settlementChanged(); return;
+    }
     if (state.houseTool === 'delete') {
-      let best = -1, bd = 8 / state.view.scale + 4;
-      state.settlement.houses.forEach((h, i) => { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = i; } });
-      if (best >= 0) { state.settlement.houses.splice(best, 1); settlementChanged(); }
+      const s = selectedScene();
+      let best = null, bd = 8 / state.view.scale + 4;
+      for (const list of [state.settlement.houses, state.settlement.housesByScene[s.id] || []]) list.forEach((h, i) => { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = { list, i }; } });
+      if (best) { best.list.splice(best.i, 1); settlementChanged(); }
       return;
     }
     if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
