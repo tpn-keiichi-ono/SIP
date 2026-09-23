@@ -7,7 +7,7 @@
 //   bias（開放地寄り ↔ 森林寄り）で判定の傾きを時期ごとに調整できる。
 // モノクロ写真では彩度・緑らしさが 0 になるが、分散の下限を設けているため同じ手順で動く。
 
-import { boxMean, dilate, morphOpen, morphClose, removeSmallRegions, keepRegionsTouchingBorder, connectedComponents, distanceTransform, otsu } from './morph.js';
+import { boxMean, boxSum, dilate, morphOpen, morphClose, removeSmallRegions, keepRegionsTouchingBorder, connectedComponents, distanceTransform, otsu } from './morph.js';
 
 export const CLASSES = ['forest', 'sparse', 'open', 'built'];
 
@@ -37,15 +37,29 @@ export function deriveFeatures(feat, W, H, smooth, texRadius) {
   const tex = new Float32Array(n);
   for (let i = 0; i < n; i++) tex[i] = Math.sqrt(Math.max(0, m2[i] - m[i] * m[i]));
   const mn = localMin(feat.lum, W, H, texRadius); // 樹冠の間の影を拾う（森林で低く、田畑で高い）
+  // 広域テクスチャ（2 倍の窓）: 田畑は広い範囲でなめらか、疎林・樹冠は凹凸が続く
+  const r2 = texRadius * 2 + 1;
+  const mB = boxMean(feat.lum, W, H, r2), m2B = boxMean(sq, W, H, r2);
+  const texB = new Float32Array(n);
+  for (let i = 0; i < n; i++) texB[i] = Math.sqrt(Math.max(0, m2B[i] - mB[i] * mB[i]));
+  // エッジ密度: 輝度勾配の大きさ（田畑の畦や道路の縁、樹冠の輪郭）
+  const grad = new Float32Array(n);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    const gx = feat.lum[i + 1] - feat.lum[i - 1], gy = feat.lum[i + W] - feat.lum[i - W];
+    grad[i] = Math.sqrt(gx * gx + gy * gy) * 0.5;
+  }
   return [
     boxMean(feat.lum, W, H, smooth),
     boxMean(feat.chroma, W, H, smooth),
     boxMean(feat.green, W, H, smooth),
     boxMean(tex, W, H, smooth),
     boxMean(mn, W, H, smooth),
+    boxMean(texB, W, H, smooth),
+    boxMean(grad, W, H, Math.max(smooth, texRadius)),
   ];
 }
-export const FEATURE_NAMES = ['輝度', '彩度', '緑らしさ', 'テクスチャ', '局所最小輝度'];
+export const FEATURE_NAMES = ['輝度', '彩度', '緑らしさ', 'テクスチャ', '局所最小輝度', '広域テクスチャ', 'エッジ密度'];
 
 /** 分離可能な最小値フィルタ（窓 2r+1）。 */
 export function localMin(src, W, H, r) {
@@ -145,6 +159,8 @@ export function defaultParams(grayscale) {
     builtMin: grayscale ? 200 : 190, // サンプルが無いときの人工物の輝度下限（256 で無効）
     builtChromaMax: grayscale ? 255 : 24,
     varFloor: 9,          // 分散の下限（特徴量が一定のときの 0 除算防止・過学習防止）
+    strictness: 2,        // 判定の厳しさ: 1 位と 2 位のクラスの距離差（マハラノビス距離²）がこれ未満なら「確信なし」として森林扱い
+    majority: 2,          // 近傍多数決の窓半径（画素）。0 で無効
     coastExclude: true,   // 水域に接する白波・砂浜・岩礁を陸域から除く
   };
 }
@@ -252,12 +268,30 @@ export function classifyScene(feat, W, H, params, water, samples) {
       let lb = -Infinity;
       if (model.built) lb = logLik(F, i, model.built);
       else if (builtRule(i)) lb = Infinity;
-      if (lb > lf && lb > lo && lb > ls) built[i] = 1;
-      else if (ls > lf && ls >= lo) sparse[i] = 1;
-      else if (lf >= lo) forest[i] = 1;
+      // 1 位と 2 位の差（対数尤度 = -0.5·距離² なので 差×2 が距離²の差）
+      const arr = [lf, ls, lo, lb];
+      let b1 = -Infinity, b2 = -Infinity, k1 = 0;
+      for (let k = 0; k < 4; k++) { if (arr[k] > b1) { b2 = b1; b1 = arr[k]; k1 = k; } else if (arr[k] > b2) b2 = arr[k]; }
+      const margin = Number.isFinite(b1) && Number.isFinite(b2) ? 2 * (b1 - b2) : Infinity;
+      if (k1 === 3) built[i] = 1;
+      else if (margin < p.strictness) forest[i] = 1; // 確信が持てない画素は緩衝帯にも田畑にも数えない
+      else if (k1 === 1) sparse[i] = 1;
+      else if (k1 === 0) forest[i] = 1;
     } else {
       if (sl[i] < forestMax - p.bias * 5) forest[i] = 1;
-      else if (model.built ? logLik(F, i, model.built) > logLik(F, i, { comps: [{ mu: [forestMax + 40, 0, 0, 0, forestMax + 20] }], va: [400, 400, 400, 400, 400], logDet: 5 * Math.log(400) }) : builtRule(i)) built[i] = 1;
+      else if (model.built ? logLik(F, i, model.built) > logLik(F, i, { comps: [{ mu: [forestMax + 40, 0, 0, 0, forestMax + 20, 0, 0] }], va: [400, 400, 400, 400, 400, 400, 400], logDet: 0 }) : builtRule(i)) built[i] = 1;
+    }
+  }
+  if (useGauss && p.majority > 0) {
+    // 近傍多数決: 4 クラスのラベルを窓内で最多のものに置き換え、塩胡椒ノイズを除く
+    const open0 = new Uint8Array(n);
+    for (let i = 0; i < n; i++) open0[i] = land[i] && !forest[i] && !sparse[i] && !built[i] ? 1 : 0;
+    const cnt = [boxSum(forest, W, H, p.majority), boxSum(sparse, W, H, p.majority), boxSum(open0, W, H, p.majority), boxSum(built, W, H, p.majority)];
+    for (let i = 0; i < n; i++) {
+      if (!land[i]) continue;
+      let best = 0, bk = 0;
+      for (let k = 0; k < 4; k++) if (cnt[k][i] > best) { best = cnt[k][i]; bk = k; }
+      forest[i] = bk === 0 ? 1 : 0; sparse[i] = bk === 1 ? 1 : 0; built[i] = bk === 3 ? 1 : 0;
     }
   }
   if (p.clean > 0) {
@@ -290,7 +324,7 @@ export function classifyScene(feat, W, H, params, water, samples) {
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 60, forestNearPx = 0, coastAwayPx = 0, water = null } = {}) {
+export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6 } = {}) {
   const n = W * H;
   // 田畑・人工物は、森の中の小さな断片（誤判定や小屋など）を除き、まとまった区画だけを生活空間とみなす
   const fieldBuilt = new Uint8Array(n);
@@ -319,6 +353,14 @@ export function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx =
     for (let i = 0; i < n; i++) if (buf[i] && dW[i] <= coastAwayPx) buf[i] = 0;
   }
   let out = minBufferRegionPx > 1 ? removeSmallRegions(buf, W, H, minBufferRegionPx, 8) : buf; // 帯の中の細かな斑点を除く
+  if (adjacencyPx > 0) {
+    // 生活空間に接している塊だけを緩衝帯とする（帯の中でも生活空間から浮いている疎林は除く）
+    const dH = distanceTransform(humanAll, W, H);
+    const { labels, sizes } = connectedComponents(out, W, H, 8);
+    const touch = new Uint8Array(sizes.length);
+    for (let i = 0; i < n; i++) if (labels[i] && dH[i] <= adjacencyPx) touch[labels[i]] = 1;
+    for (let i = 0; i < n; i++) if (labels[i] && !touch[labels[i]]) out[i] = 0;
+  }
   if (correction) {
     for (let i = 0; i < n; i++) {
       if (correction[i] > 0) { if (cls.land[i]) out[i] = 1; }

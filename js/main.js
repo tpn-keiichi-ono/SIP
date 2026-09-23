@@ -448,6 +448,8 @@ let paramRefreshers = [];
 function setupParamPanel() {
   const set = (key) => (v) => { const s = selectedScene(); if (!s) return; s.params = { ...s.params, [key]: v }; save(); scheduleSceneRecompute(s); };
   paramRefreshers = [
+    bindRange('pStrict', 'pStrictVal', () => selectedScene()?.cls?.resolved.strictness ?? 2, set('strictness'), (v) => v.toFixed(1)),
+    bindRange('pMajority', 'pMajorityVal', () => selectedScene()?.cls?.resolved.majority ?? 2, set('majority'), (v) => (v > 0 ? v.toFixed(0) : 'なし')),
     bindRange('pBias', 'pBiasVal', () => selectedScene()?.cls?.resolved.bias ?? 0, set('bias'), (v) => (v > 0 ? '+' : '') + v.toFixed(2)),
     bindRange('pTex', 'pTexVal', () => selectedScene()?.cls?.resolved.texRadius ?? 2, set('texRadius'), (v) => v.toFixed(0)),
     bindRange('pForest', 'pForestVal', () => selectedScene()?.cls?.resolved.forestMax ?? 100, set('forestMax'), (v) => v.toFixed(0)),

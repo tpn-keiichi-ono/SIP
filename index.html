@@ -93,6 +93,9 @@
         </div>
         <p class="note" id="sampleInfo"></p>
         <div class="btns"><button id="btnSampleClearScene">この時期のサンプルをクリア</button><button id="btnSampleClearShared">共通サンプルをクリア</button></div>
+        <div class="ctl"><label for="pStrict">判定の厳しさ</label><input type="range" id="pStrict" min="0" max="10" step="0.5"><span class="val" id="pStrictVal"></span></div>
+        <p class="note">最も近いクラスと 2 番目のクラスの距離差がこの値未満の画素は「確信なし」として森林扱いにし、緩衝帯にも田畑にも数えません。大きいほど確実な画素だけを採用します。</p>
+        <div class="ctl"><label for="pMajority">近傍多数決 (px)</label><input type="range" id="pMajority" min="0" max="5" step="1"><span class="val" id="pMajorityVal"></span></div>
         <div class="ctl"><label for="pBias">判定の傾き</label><input type="range" id="pBias" min="-3" max="3" step="0.25"><span class="val" id="pBiasVal"></span></div>
         <p class="note">負にすると森林、正にすると開放地と判定しやすくなります。</p>
         <div class="ctl"><label for="pSmooth">平滑化半径 (px)</label><input type="range" id="pSmooth" min="0" max="8" step="1"><span class="val" id="pSmoothVal"></span></div>
