@@ -75,4 +75,32 @@ table.stats td.num, table.stats th.num { text-align: right; font-variant-numeric
 .big { font-size: 20px; font-weight: 700; color: var(--accent-2); }
 #dropHint { border: 2px dashed var(--border); border-radius: 6px; padding: 10px; text-align: center; color: var(--text-2); }
 #dropHint.over { border-color: var(--focus); background: #eef4ff; }
+button, select, input[type=number], input[type=text] { min-height: 32px; }
+#btnAoiDone { background: var(--accent); color: #fff; border-color: var(--accent); }
 @media (max-width: 1000px) { main { grid-template-columns: 1fr; } aside { max-height: none; } }
+@media (max-width: 720px) {
+  body { font-size: 14px; }
+  header { flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px; }
+  header .sub { display: none; }
+  main { padding: 8px; gap: 8px; }
+  #viewerWrap { aspect-ratio: 3 / 2; max-height: 60vh; border-radius: 4px; }
+  #hud .year { font-size: 24px; }
+  #hud .stats { font-size: 11px; }
+  #legend { font-size: 10px; padding: 4px 8px; gap: 8px; right: 8px; bottom: 6px; }
+  #timeline { padding: 8px 10px 2px; }
+  #timeline .row { flex-wrap: wrap; gap: 8px; }
+  #timeline input[type=range] { flex-basis: 100%; order: 3; min-height: 32px; }
+  #timeline label { font-size: 12px; }
+  #ticks .tick { font-size: 9px; }
+  #chart { height: 160px; }
+  .ctl { grid-template-columns: 1fr 52px; }
+  .ctl label { grid-column: 1 / -1; }
+  .ctl input[type=range] { min-height: 32px; }
+  .ctl select, .ctl input[type=number], .ctl input[type=text] { grid-column: 1 / -1; }
+  button { padding: 8px 12px; min-height: 40px; }
+  .checks label { min-height: 32px; }
+  input[type=checkbox], input[type=radio] { width: 20px; height: 20px; }
+  table.scenes { display: block; overflow-x: auto; }
+  table.scenes input[type=number] { width: 70px; }
+  .readout { grid-template-columns: 1fr; }
+}

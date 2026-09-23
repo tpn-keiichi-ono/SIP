@@ -10,9 +10,11 @@ export class AreaChart {
     this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.tip = tooltipEl;
     this.data = null; this.hoverX = null; this.onSeek = null;
     this.pad = { l: 56, r: 18, t: 18, b: 34 };
-    canvas.addEventListener('mousemove', (e) => this._hover(e));
-    canvas.addEventListener('mouseleave', () => { this.hoverX = null; if (this.tip) this.tip.hidden = true; this.draw(); });
-    canvas.addEventListener('click', (e) => { const y = this._yearAt(e); if (y != null && this.onSeek) this.onSeek(y); });
+    canvas.style.touchAction = 'pan-y';
+    canvas.addEventListener('pointermove', (e) => this._hover(e));
+    canvas.addEventListener('pointerdown', (e) => { this._hover(e); const y = this._yearAt(e); if (y != null && this.onSeek) this.onSeek(y); });
+    canvas.addEventListener('pointerleave', () => { this.hoverX = null; if (this.tip) this.tip.hidden = true; this.draw(); });
+    canvas.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') { this.hoverX = null; if (this.tip) this.tip.hidden = true; this.draw(); } });
   }
 
   /**

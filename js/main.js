@@ -492,7 +492,8 @@ function scheduleSceneRecompute(s) {
 
 function setupBufferPanel() {
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '全域'));
-  $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
+  $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
+  $('btnAoiDone').addEventListener('click', finishAoi);
   $('btnAoiClear').addEventListener('click', () => { state.aoiPoints = []; state.aoiMask = null; state.aoiDrawing = false; $('btnAoi').classList.remove('active'); viewer.classList.remove('drawing'); save(); recomputeAllBuffers(); });
   const bm = $('brushMode'); bm.addEventListener('change', () => { state.brush.mode = Number(bm.value); viewer.classList.toggle('brush', state.brush.mode !== 0); });
   bindRange('brushSize', 'brushSizeVal', () => state.brush.size, (v) => { state.brush.size = v; }, (v) => v.toFixed(0));
@@ -502,7 +503,7 @@ let bufferTimer = null;
 function scheduleBufferRecompute() { clearTimeout(bufferTimer); bufferTimer = setTimeout(recomputeAllBuffers, 120); }
 function recomputeAllBuffers() { for (const s of state.scenes) if (s.cls) recomputeBuffer(s); rebuildTimeline(); requestRender(); }
 function finishAoi() {
-  state.aoiDrawing = false; $('btnAoi').classList.remove('active'); viewer.classList.remove('drawing');
+  state.aoiDrawing = false; $('btnAoi').classList.remove('active'); $('btnAoiDone').hidden = true; viewer.classList.remove('drawing');
   // ダブルクリックで重複した頂点を除く
   state.aoiPoints = state.aoiPoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
   state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null;
@@ -555,17 +556,44 @@ function updateStats() {
 }
 
 // ---------- ビューア操作 ----------
+function zoomAt(sx, sy, factor) {
+  const v = state.view;
+  const ns = Math.min(40, Math.max(0.2, v.scale * factor)); const k = ns / v.scale;
+  v.tx = sx - (sx - v.tx) * k; v.ty = sy - (sy - v.ty) * k; v.scale = ns; requestRender();
+}
 function setupViewer() {
   let dragging = false, lastX = 0, lastY = 0, moved = false;
+  const pointers = new Map(); // タッチのピンチ操作用
+  let pinch = null;
+  const rectOf = () => viewer.getBoundingClientRect();
   viewer.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    viewer.setPointerCapture(e.pointerId);
+    try { viewer.setPointerCapture(e.pointerId); } catch {}
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      // 2 本指: ブラシや描画を中断してピンチに切り替える
+      if (state.brush.painting) { state.brush.painting = false; }
+      dragging = false; moved = true;
+      const [a, b] = [...pointers.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+      return;
+    }
     lastX = e.clientX; lastY = e.clientY; moved = false;
     if (state.aoiDrawing || state.sampleTool.mode) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
   viewer.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      const r = rectOf();
+      state.view.tx += cx - pinch.cx; state.view.ty += cy - pinch.cy;
+      if (pinch.dist > 0) zoomAt(cx - r.left, cy - r.top, dist / pinch.dist);
+      pinch = { dist, cx, cy }; requestRender();
+      return;
+    }
     if (state.brush.painting) { paintAt(e); return; }
     if (!dragging) return;
     const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
@@ -573,6 +601,9 @@ function setupViewer() {
     state.view.tx += dx; state.view.ty += dy; requestRender();
   });
   const up = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) { const p = [...pointers.values()][0]; lastX = p.x; lastY = p.y; moved = true; }
     if (state.brush.painting) { state.brush.painting = false; const s = selectedScene(); save(); recomputeBuffer(s); rebuildTimeline(); requestRender(); }
     dragging = false; viewer.style.cursor = '';
   };
@@ -588,10 +619,8 @@ function setupViewer() {
   viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } });
   viewer.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const r = viewer.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    const f = Math.pow(1.0015, -e.deltaY); const v = state.view;
-    const ns = Math.min(40, Math.max(0.2, v.scale * f)); const k = ns / v.scale;
-    v.tx = sx - (sx - v.tx) * k; v.ty = sy - (sy - v.ty) * k; v.scale = ns; requestRender();
+    const r = viewer.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, Math.pow(1.0015, -e.deltaY));
   }, { passive: false });
   window.addEventListener('keydown', (e) => {
     if (e.target.matches('input, select, textarea')) return;
@@ -731,9 +760,11 @@ async function init() {
     state.mPerPx = sc.barMeters / sc.barPx; state.pxAreaHa = state.mPerPx * state.mPerPx / 10000;
     status.textContent = '分類中…';
     await new Promise(r => setTimeout(r, 0));
-    for (let i = 0; i < state.scenes.length; i++) await prepareScene(state.scenes[i], imgs[i]);
+    const loading = $('loading');
+    for (let i = 0; i < state.scenes.length; i++) { loading.textContent = `画像を準備しています… (${i + 1}/${state.scenes.length})`; await new Promise(r => setTimeout(r, 0)); await prepareScene(state.scenes[i], imgs[i]); }
+    loading.textContent = '水域を判定しています…'; await new Promise(r => setTimeout(r, 0));
     computeWater();
-    for (const s of state.scenes) { if (s.params.forestMax === undefined) s.params.forestMax = null; recomputeScene(s); }
+    for (let i = 0; i < state.scenes.length; i++) { const s = state.scenes[i]; loading.textContent = `土地被覆を分類しています… (${i + 1}/${state.scenes.length})`; await new Promise(r => setTimeout(r, 0)); if (s.params.forestMax === undefined) s.params.forestMax = null; recomputeScene(s); }
     state.selectedId = state.scenes[state.scenes.length - 1].id;
     state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null;
     if (state.aoiMask) for (const s of state.scenes) recomputeBuffer(s);
