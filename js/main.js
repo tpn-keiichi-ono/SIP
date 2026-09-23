@@ -464,6 +464,7 @@ function setupParamPanel() {
   paramRefreshers.push(() => { coast.checked = selectedScene()?.cls?.resolved.coastExclude !== false; });
   setupSampleTools();
   $('btnAuto').addEventListener('click', () => { const s = selectedScene(); s.params = { ...s.params, forestMax: null }; save(); recomputeScene(s); rebuildTimeline(); refreshParamPanel(); requestRender(); });
+  $('btnParamsReset').addEventListener('click', () => { for (const s of state.scenes) { s.params = {}; recomputeScene(s); } save(); rebuildTimeline(); refreshParamPanel(); requestRender(); });
   $('btnAutoAll').addEventListener('click', () => { for (const s of state.scenes) { s.params = { ...s.params, forestMax: null }; recomputeScene(s); } save(); rebuildTimeline(); refreshParamPanel(); requestRender(); });
 }
 function refreshParamPanel() {
@@ -473,6 +474,8 @@ function refreshParamPanel() {
   const sh = state.samples.shared, own = state.samples.byScene[s.id] || {};
   const fmt = (o) => SAMPLE_CLASSES.map(c => `${SAMPLE_LABELS[c]} ${(o[c] || []).length}`).join('・');
   $('sampleInfo').textContent = `共通サンプル: ${fmt(sh)} ／ この時期のサンプル: ${fmt(own)}`;
+  const ov = state.scenes.filter(x => Object.keys(x.params || {}).some(k => x.params[k] != null && !(k === 'forestMax' && x.params[k] === null))).map(x => `${x.year}: ${Object.entries(x.params).filter(([k, v]) => v != null).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+  $('overrideInfo').innerHTML = ov.length ? `<span class="warn">時期別に上書きされたパラメータ: ${esc(ov.join(' ／ '))}</span>（年ごとの偏りを避けるには解除して全時期同じ設定にしてください）` : '時期別のパラメータ上書きはありません（全時期同じ判定設定）。';
 }
 function setupSampleTools() {
   const tools = $('sampleTools');
