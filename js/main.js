@@ -110,7 +110,8 @@ function showPhotoHover(k, sx, sy) {
   if (k < 0 || k === state.photoIndex) { el.hidden = true; return; }
   const p = state.photos[k];
   const img = $('photoHoverImg'); if (img.dataset.k !== String(k)) { img.src = p.thumb; img.dataset.k = String(k); }
-  $('photoHoverCap').textContent = `${p.time ? p.time.slice(11, 16) : ''}${p.dir != null ? ' ／ ' + ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8] + '向き' : ''}`;
+  const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
+  $('photoHoverCap').innerHTML = `${p.alt != null ? `標高 ${p.alt} m` : ''}${p.dir != null ? `${p.alt != null ? ' ／ ' : ''}撮影方向 ${dirName}（${p.dir}°）` : ''}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   el.hidden = false;
   const W = viewer.clientWidth, H = viewer.clientHeight, w = el.offsetWidth || 210, h = el.offsetHeight || 190;
   let x = sx + 16, y = sy - h / 2;
