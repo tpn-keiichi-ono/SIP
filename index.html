@@ -23,7 +23,7 @@
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">過去に緩衝帯だった場所（推定）</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
       </div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -56,7 +56,7 @@
       <div class="body">
         <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
         <div class="checks">
-          <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
+          <label><input type="checkbox" id="showLost" checked> 過去に緩衝帯だった場所（推定）を表示</label>
           <label>消失の基準: <select id="lostBase"><option value="all" selected>過去のすべての時期（和集合）</option><option value="prev">直前の観測時期</option><option value="first">最初の観測時期</option></select></label>
           <label><input type="checkbox" id="showSettlement" checked> 住宅地</label>
           <label><input type="checkbox" id="showExcl" checked> 棚田跡（除外範囲）</label>
