@@ -513,9 +513,15 @@ function updateTimelineUI() {
   const tl = state.timeline; const sl = $('yearSlider');
   sl.min = tl.xMin; sl.max = tl.xMax; sl.step = 0.5; sl.value = state.year;
   const ticks = $('ticks'); ticks.innerHTML = '';
-  const place = (yr) => `${((yr - tl.xMin) / (tl.xMax - tl.xMin)) * 100}%`;
+  // つまみの幅（約 16px）分だけ可動範囲が狭いので、その分を補正して目盛りを置く
+  const THUMB = 16;
+  const place = (yr) => `calc(${THUMB / 2}px + (100% - ${THUMB}px) * ${(yr - tl.xMin) / (tl.xMax - tl.xMin)})`;
+  let prevYear = -Infinity; const span = tl.xMax - tl.xMin;
   for (const s of tl.scenes) {
     const el = document.createElement('div'); el.className = 'tick'; el.style.left = place(s.year);
+    // 隣の目盛りと近いときはラベルを一段下げて重なりを避ける
+    if ((s.year - prevYear) / span < 0.07) el.classList.add('alt');
+    prevYear = s.year;
     el.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.title = s.label || s.id;
     el.addEventListener('click', () => setYear(s.year)); ticks.appendChild(el);
   }

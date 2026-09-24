@@ -55,10 +55,14 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #loading[hidden] { display: none; }
 #timeline { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px 4px; }
 #timeline .row { display: flex; align-items: center; gap: 10px; }
-#timeline input[type=range] { flex: 1; accent-color: var(--accent); }
-#ticks { position: relative; height: 26px; margin: 2px 8px 0; }
+#timeline .sliderWrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#timeline input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+#ticks { position: relative; height: 26px; margin: 2px 0 0; }
 #ticks .tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; color: var(--text-2); text-align: center; cursor: pointer; white-space: nowrap; }
 #ticks .tick::before { content: ""; display: block; width: 2px; height: 7px; background: var(--accent); margin: 0 auto 1px; }
+#ticks .tick.alt { padding-top: 12px; }
+#ticks .tick.alt::before { height: 19px; }
+#ticks { height: 38px; }
 #ticks .tick.disappear::before { background: var(--muted); }
 #ticks .tick.disappear { color: var(--muted); }
 #chartWrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
@@ -111,7 +115,8 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
   #legend { font-size: 11px; padding: 4px 8px; gap: 4px 10px; }
   #timeline { padding: 8px 10px 2px; }
   #timeline .row { flex-wrap: wrap; gap: 8px; }
-  #timeline input[type=range] { flex-basis: 100%; order: 3; min-height: 32px; }
+  #timeline .sliderWrap { flex-basis: 100%; order: 3; }
+  #timeline input[type=range] { min-height: 32px; }
   #timeline label { font-size: 12px; }
   #ticks .tick { font-size: 9px; }
   #chart { height: 160px; }
