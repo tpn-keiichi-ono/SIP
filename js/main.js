@@ -525,8 +525,15 @@ function updateTimelineUI() {
     // 隣の目盛りと近いときはラベルを一段下げて重なりを避ける
     if ((s.year - prevYear) / span < 0.07) el.classList.add('alt');
     prevYear = s.year;
+    el.classList.add('obs');
     el.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.title = s.label || s.id;
     el.addEventListener('click', () => setYear(s.year)); ticks.appendChild(el);
+  }
+  // 軸の右端（予測期間の終わり）
+  if (tl.xMax > tl.start.year + 1e-9) {
+    const el = document.createElement('div'); el.className = 'tick end'; setPos(el, tl.xMax);
+    el.textContent = `${Math.round(tl.xMax)} 予測`; el.title = `${tl.start.year} 年以降は予測期間`;
+    el.addEventListener('click', () => setYear(tl.xMax)); ticks.appendChild(el);
   }
   const dy = tl.projection.disappearYear;
   if (dy != null && dy > tl.start.year && dy <= tl.xMax) {
@@ -547,6 +554,8 @@ function updateSliderThumb() {
   const sl = $('yearSlider'); const x = yearToPx(state.year);
   sl.querySelector('.thumb').style.left = x + 'px';
   sl.querySelector('.fill').style.width = Math.max(0, x - sliderHalf()) + 'px';
+  const pred = sl.querySelector('.pred'); const px0 = yearToPx(tl.start.year); const px1 = yearToPx(tl.xMax);
+  pred.style.left = px0 + 'px'; pred.style.width = Math.max(0, px1 - px0) + 'px'; pred.style.display = px1 - px0 > 1 ? '' : 'none';
   sl.setAttribute('aria-valuemin', tl.xMin); sl.setAttribute('aria-valuemax', tl.xMax); sl.setAttribute('aria-valuenow', state.year);
   for (const el of $('ticks').querySelectorAll('.tick')) el.style.left = yearToPx(Number(el.dataset.year)) + 'px';
 }

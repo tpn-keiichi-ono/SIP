@@ -59,6 +59,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #yearSlider { position: relative; height: 28px; cursor: pointer; touch-action: none; }
 #yearSlider { --thumb-half: 9px; }
 #yearSlider .track { position: absolute; left: var(--thumb-half); right: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: #e2e1dc; }
+#yearSlider .pred { position: absolute; top: 11px; height: 6px; border-radius: 0 3px 3px 0; background: repeating-linear-gradient(135deg, #f3c6c6 0 4px, #e2e1dc 4px 8px); }
 #yearSlider .fill { position: absolute; left: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: var(--accent); width: 0; }
 #yearSlider .thumb { position: absolute; top: 5px; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 #yearSlider:focus { outline: none; } #yearSlider:focus .thumb { outline: 2px solid var(--focus); }
@@ -69,6 +70,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #ticks .tick.alt::before { height: 19px; }
 #ticks { height: 38px; }
 #ticks .tick.disappear::before { background: var(--muted); }
+#ticks .tick.end { color: var(--muted); } #ticks .tick.end::before { background: var(--muted); }
+#ticks .tick.obs { font-weight: 600; color: var(--text); }
 #ticks .tick.disappear { color: var(--muted); }
 #chartWrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
 #chart { width: 100%; height: 190px; display: block; }
@@ -121,7 +124,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
   #timeline { padding: 8px 10px 2px; }
   #timeline .row { flex-wrap: wrap; gap: 8px; }
   #timeline .sliderWrap { flex-basis: 100%; order: 3; }
-  #yearSlider { height: 36px; } #yearSlider .track, #yearSlider .fill { top: 15px; } #yearSlider .thumb { top: 7px; width: 22px; height: 22px; margin-left: -11px; } #yearSlider, #ticks { --thumb-half: 11px; }
+  #yearSlider { height: 36px; } #yearSlider .track, #yearSlider .fill, #yearSlider .pred { top: 15px; } #yearSlider .thumb { top: 7px; width: 22px; height: 22px; margin-left: -11px; } #yearSlider, #ticks { --thumb-half: 11px; }
   #timeline label { font-size: 12px; }
   #ticks .tick { font-size: 9px; }
   #chart { height: 160px; }

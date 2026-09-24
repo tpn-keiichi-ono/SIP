@@ -66,6 +66,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #yearSlider { position: relative; height: 28px; cursor: pointer; touch-action: none; }
 #yearSlider { --thumb-half: 9px; }
 #yearSlider .track { position: absolute; left: var(--thumb-half); right: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: #e2e1dc; }
+#yearSlider .pred { position: absolute; top: 11px; height: 6px; border-radius: 0 3px 3px 0; background: repeating-linear-gradient(135deg, #f3c6c6 0 4px, #e2e1dc 4px 8px); }
 #yearSlider .fill { position: absolute; left: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: var(--accent); width: 0; }
 #yearSlider .thumb { position: absolute; top: 5px; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 #yearSlider:focus { outline: none; } #yearSlider:focus .thumb { outline: 2px solid var(--focus); }
@@ -76,6 +77,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #ticks .tick.alt::before { height: 19px; }
 #ticks { height: 38px; }
 #ticks .tick.disappear::before { background: var(--muted); }
+#ticks .tick.end { color: var(--muted); } #ticks .tick.end::before { background: var(--muted); }
+#ticks .tick.obs { font-weight: 600; color: var(--text); }
 #ticks .tick.disappear { color: var(--muted); }
 #chartWrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
 #chart { width: 100%; height: 190px; display: block; }
@@ -128,7 +131,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
   #timeline { padding: 8px 10px 2px; }
   #timeline .row { flex-wrap: wrap; gap: 8px; }
   #timeline .sliderWrap { flex-basis: 100%; order: 3; }
-  #yearSlider { height: 36px; } #yearSlider .track, #yearSlider .fill { top: 15px; } #yearSlider .thumb { top: 7px; width: 22px; height: 22px; margin-left: -11px; } #yearSlider, #ticks { --thumb-half: 11px; }
+  #yearSlider { height: 36px; } #yearSlider .track, #yearSlider .fill, #yearSlider .pred { top: 15px; } #yearSlider .thumb { top: 7px; width: 22px; height: 22px; margin-left: -11px; } #yearSlider, #ticks { --thumb-half: 11px; }
   #timeline label { font-size: 12px; }
   #ticks .tick { font-size: 9px; }
   #chart { height: 160px; }
@@ -180,7 +183,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <button id="btnPlay" class="primary" title="再生 / 一時停止">▶ 再生</button>
         <button id="btnPrev" title="前の観測時期">◀◀</button>
         <button id="btnNext" title="次の観測時期">▶▶</button>
-        <div class="sliderWrap"><div id="yearSlider" role="slider" tabindex="0" aria-label="年"><div class="track"></div><div class="fill"></div><div class="thumb"></div></div><div id="ticks"></div></div>
+        <div class="sliderWrap"><div id="yearSlider" role="slider" tabindex="0" aria-label="年"><div class="track"></div><div class="pred" title="予測期間"></div><div class="fill"></div><div class="thumb"></div></div><div id="ticks"></div></div>
         <label>速度 <select id="speed"><option value="1">1 年/秒</option><option value="3" selected>3 年/秒</option><option value="6">6 年/秒</option><option value="12">12 年/秒</option></select></label>
         <label><input type="checkbox" id="loop"> ループ</label>
       </div>
@@ -2048,8 +2051,15 @@ function updateTimelineUI() {
     // 隣の目盛りと近いときはラベルを一段下げて重なりを避ける
     if ((s.year - prevYear) / span < 0.07) el.classList.add('alt');
     prevYear = s.year;
+    el.classList.add('obs');
     el.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.title = s.label || s.id;
     el.addEventListener('click', () => setYear(s.year)); ticks.appendChild(el);
+  }
+  // 軸の右端（予測期間の終わり）
+  if (tl.xMax > tl.start.year + 1e-9) {
+    const el = document.createElement('div'); el.className = 'tick end'; setPos(el, tl.xMax);
+    el.textContent = `${Math.round(tl.xMax)} 予測`; el.title = `${tl.start.year} 年以降は予測期間`;
+    el.addEventListener('click', () => setYear(tl.xMax)); ticks.appendChild(el);
   }
   const dy = tl.projection.disappearYear;
   if (dy != null && dy > tl.start.year && dy <= tl.xMax) {
@@ -2070,6 +2080,8 @@ function updateSliderThumb() {
   const sl = $('yearSlider'); const x = yearToPx(state.year);
   sl.querySelector('.thumb').style.left = x + 'px';
   sl.querySelector('.fill').style.width = Math.max(0, x - sliderHalf()) + 'px';
+  const pred = sl.querySelector('.pred'); const px0 = yearToPx(tl.start.year); const px1 = yearToPx(tl.xMax);
+  pred.style.left = px0 + 'px'; pred.style.width = Math.max(0, px1 - px0) + 'px'; pred.style.display = px1 - px0 > 1 ? '' : 'none';
   sl.setAttribute('aria-valuemin', tl.xMin); sl.setAttribute('aria-valuemax', tl.xMax); sl.setAttribute('aria-valuenow', state.year);
   for (const el of $('ticks').querySelectorAll('.tick')) el.style.left = yearToPx(Number(el.dataset.year)) + 'px';
 }
