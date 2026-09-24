@@ -373,13 +373,17 @@ let overlayCanvas = null, overlayCtx = null, overlayData = null;
 let renderQueued = false;
 function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); } }
 
-function fitView() {
+function fitView(rect) {
   const cw = viewer.clientWidth, ch = viewer.clientHeight;
   if (!state.W || !cw) return;
-  const scale = Math.min(cw / state.W, ch / state.H);
-  state.view = { scale, tx: (cw - state.W * scale) / 2, ty: (ch - state.H * scale) / 2 };
+  const r = rect || { x0: 0, y0: 0, x1: state.W, y1: state.H };
+  const rw = r.x1 - r.x0, rh = r.y1 - r.y0;
+  const scale = Math.min(cw / rw, ch / rh);
+  state.view = { scale, tx: (cw - rw * scale) / 2 - r.x0 * scale, ty: (ch - rh * scale) / 2 - r.y0 * scale };
   requestRender();
 }
+/** 初期表示（設定の initialView があればその範囲、無ければ全体）。 */
+function initialView() { fitView(CFG.initialView || null); }
 function toScreen(x, y) { const v = state.view; return { x: x * v.scale + v.tx, y: y * v.scale + v.ty }; }
 function toImage(sx, sy) { const v = state.view; return { x: (sx - v.tx) / v.scale, y: (sy - v.ty) / v.scale }; }
 
@@ -599,8 +603,9 @@ function setupDisplayPanel() {
   bindCheck('crossfade', () => d.crossfade, (v) => { d.crossfade = v; save(); requestRender(); });
   bindCheck('fixLatest', () => d.fixLatest, (v) => { d.fixLatest = v; save(); requestRender(); });
   bindCheck('showOverlay', () => d.showOverlay !== false, (v) => { d.showOverlay = v; requestRender(); });
-  $('btnFit').addEventListener('click', fitView);
-  $('zoomFit').addEventListener('click', fitView);
+  $('btnFit').addEventListener('click', () => fitView());
+  $('zoomFit').addEventListener('click', () => fitView());
+  $('btnHome').addEventListener('click', initialView);
   const zoomStep = (f) => { const cw = viewer.clientWidth, ch = viewer.clientHeight; zoomAt(cw / 2, ch / 2, f); };
   $('zoomIn').addEventListener('click', () => zoomStep(1.5));
   $('zoomOut').addEventListener('click', () => zoomStep(1 / 1.5));
@@ -925,7 +930,8 @@ function setupViewer() {
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.exclDrawing) finishExcl(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
   });
-  new ResizeObserver(() => { fitView(); chart.draw(); }).observe($('viewerWrap'));
+  let firstResize = true;
+  new ResizeObserver(() => { if (firstResize) { firstResize = false; initialView(); } else fitView(); chart.draw(); }).observe($('viewerWrap'));
 }
 function paintAt(e) {
   const s = selectedScene(); if (!s || !s.buffer) return;
@@ -1076,7 +1082,7 @@ async function init() {
     rebuildStartOptions();
     state.year = Math.min(...state.scenes.map(s => s.year));
     rebuildTimeline(); renderSceneTable(); refreshParamPanel();
-    fitView(); render();
+    initialView(); render();
     status.textContent = `${state.W}×${state.H} px · ${state.mPerPx.toFixed(2)} m/px · ${state.scenes.length} 時期`;
     if (state.settingsMigrated) { save(); $('exportNote').textContent = '判定パラメータの既定値が更新されたため、保存されていた古いパラメータを既定値に置き換えました（サンプル・住居・多角形は引き継いでいます）。'; }
     clearTimeout(watchdog);
