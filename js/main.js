@@ -502,7 +502,7 @@ function drawHouses(ctx) {
 function drawSamples(ctx) {
   const s = selectedScene(); if (!s) return;
   ctx.save();
-  ctx.lineWidth = 2; ctx.font = '11px system-ui, sans-serif'; ctx.textBaseline = 'bottom';
+  ctx.lineWidth = 2; ctx.font = '11px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif'; ctx.textBaseline = 'bottom';
   const draw = (list, cls, dashed) => {
     for (const c of list) {
       const q = toScreen(c.x, c.y); const r = Math.max(3, c.r * state.view.scale);
@@ -1112,9 +1112,9 @@ function renderToCanvas(W, H) {
   const frame = computeFrame(state.year);
   drawBase(ctx, frame, W, H);
   if (state.display.showOverlay !== false) ctx.drawImage(buildOverlay(frame), 0, 0);
-  ctx.font = 'bold 34px system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6; ctx.textBaseline = 'top';
+  ctx.font = 'bold 34px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6; ctx.textBaseline = 'top';
   ctx.fillText(`${Math.floor(frame.t)} 年`, 14, 12);
-  ctx.font = '16px system-ui, sans-serif';
+  ctx.font = '16px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif';
   ctx.fillText(`森林緩衝帯 ${frame.areaHa.toFixed(1)} ha  ${frame.mode === 'pred' ? '［予測］' : frame.mode === 'interp' ? '［補間］' : '［観測］'}`, 14, 54);
   return c;
 }

@@ -80,7 +80,7 @@ export class AreaChart {
     const d = this.data; if (!d || !d.observed.length) return;
     const { x, y, yMax } = this._scales(w, h);
     const p = this.pad;
-    ctx.font = '11px system-ui, sans-serif'; ctx.fillStyle = C.text; ctx.textBaseline = 'middle';
+    ctx.font = '12px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif'; ctx.fillStyle = C.text; ctx.textBaseline = 'middle';
     // y grid
     const yStep = niceStep(yMax / 4);
     ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.textAlign = 'right';

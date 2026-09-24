@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>珠洲市真浦町 森林緩衝帯の消失シミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
 <style>
 :root {
   --bg: #f4f4f1; --surface: #fcfcfb; --surface-2: #ecece8; --border: #dcdbd5; --text: #1a1a19; --text-2: #52514e; --muted: #8a8983;
@@ -12,10 +15,11 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; font-size: 13px; color: var(--text); background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
+:root { --font: "BIZ UDPGothic", "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif; }
+body { font-family: var(--font); font-size: 14px; letter-spacing: 0.01em; color: var(--text); background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
 header { display: flex; align-items: baseline; gap: 16px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
-header h1 { font-size: 16px; margin: 0; }
-header .sub { color: var(--text-2); font-size: 12px; }
+header h1 { font-size: 17px; margin: 0; font-weight: 700; }
+header .sub { color: var(--text-2); font-size: 13px; }
 header .spacer { flex: 1; }
 header .status { color: var(--text-2); font-size: 12px; }
 main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); gap: 12px; padding: 12px 16px; flex: 1; align-items: start; }
@@ -28,8 +32,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #hud .year { font-size: 34px; font-weight: 700; letter-spacing: .02em; line-height: 1; }
 #hud .mode { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,.55); font-size: 11px; }
 #hud .mode.pred { background: rgba(227,73,72,.85); }
-#hud .stats { margin-top: 6px; font-size: 12px; line-height: 1.5; }
-#legend { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); padding: 6px 12px; border-radius: 6px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+#hud .stats { margin-top: 6px; font-size: 13px; line-height: 1.5; }
+#legend { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); padding: 6px 12px; border-radius: 6px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
 #legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
 #legend .l-lost::before { background: rgba(150,70,230,.8); }
@@ -51,7 +55,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #zoomCtl button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; border-radius: 6px; background: rgba(255,255,255,.92); border: 1px solid #999; color: #222; }
 #zoomCtl button:hover { background: #fff; }
 @media (max-width: 720px) { #zoomCtl button { width: 42px; height: 42px; } #zoomCtl { bottom: 48px; } }
-#photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 12px; }
+#photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 13px; }
 #photoPopup[hidden] { display: none; }
 #photoPopup .imgWrap { position: relative; cursor: zoom-in; }
 #photoPopup img { width: 100%; display: block; border-radius: 4px; }
@@ -86,7 +90,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #yearSlider .thumb { position: absolute; top: 5px; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 #yearSlider:focus { outline: none; } #yearSlider:focus .thumb { outline: 2px solid var(--focus); }
 #ticks { position: relative; height: 26px; margin: 2px 0 0; }
-#ticks .tick { position: absolute; top: 0; width: 0; font-size: 10px; color: var(--text-2); cursor: pointer; white-space: nowrap; }
+#ticks .tick { position: absolute; top: 0; width: 0; font-size: 11px; color: var(--text-2); cursor: pointer; white-space: nowrap; }
 #ticks .tick .mark { position: absolute; left: -1px; top: 0; width: 2px; height: 7px; background: var(--accent); }
 #ticks .tick .lbl { position: absolute; left: 0; top: 8px; transform: translateX(-50%); }
 #ticks { height: 24px; }
@@ -110,21 +114,22 @@ details .body { padding: 4px 12px 12px; display: flex; flex-direction: column; g
 .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .checks label { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); }
 .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+button, select, input { font-family: var(--font); }
 button { font: inherit; padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--text); cursor: pointer; }
 button:hover { background: var(--surface-2); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover { background: var(--accent-2); }
 button.active { outline: 2px solid var(--focus); }
 button:disabled { opacity: .5; cursor: default; }
-.note { color: var(--text-2); font-size: 11.5px; line-height: 1.5; margin: 0; }
+.note { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin: 0; }
 .warn { color: var(--accent-2); }
-table.scenes, table.stats { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.scenes, table.stats { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.scenes th, table.scenes td, table.stats th, table.stats td { padding: 3px 4px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 table.scenes input[type=number] { width: 62px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; font: inherit; }
 table.scenes input[type=text] { width: 100%; min-width: 90px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; font: inherit; }
 table.scenes tr.selected td { background: #fff3f3; }
 table.stats td.num, table.stats th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.readout { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12px; }
+.readout { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 13px; }
 .readout div { display: flex; justify-content: space-between; border-bottom: 1px dotted var(--border); padding: 2px 0; }
 .readout b { font-variant-numeric: tabular-nums; }
 .big { font-size: 20px; font-weight: 700; color: var(--accent-2); }
@@ -1463,7 +1468,7 @@ class AreaChart {
     const d = this.data; if (!d || !d.observed.length) return;
     const { x, y, yMax } = this._scales(w, h);
     const p = this.pad;
-    ctx.font = '11px system-ui, sans-serif'; ctx.fillStyle = C.text; ctx.textBaseline = 'middle';
+    ctx.font = '12px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif'; ctx.fillStyle = C.text; ctx.textBaseline = 'middle';
     // y grid
     const yStep = niceStep(yMax / 4);
     ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.textAlign = 'right';
@@ -2052,7 +2057,7 @@ function drawHouses(ctx) {
 function drawSamples(ctx) {
   const s = selectedScene(); if (!s) return;
   ctx.save();
-  ctx.lineWidth = 2; ctx.font = '11px system-ui, sans-serif'; ctx.textBaseline = 'bottom';
+  ctx.lineWidth = 2; ctx.font = '11px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif'; ctx.textBaseline = 'bottom';
   const draw = (list, cls, dashed) => {
     for (const c of list) {
       const q = toScreen(c.x, c.y); const r = Math.max(3, c.r * state.view.scale);
@@ -2662,9 +2667,9 @@ function renderToCanvas(W, H) {
   const frame = computeFrame(state.year);
   drawBase(ctx, frame, W, H);
   if (state.display.showOverlay !== false) ctx.drawImage(buildOverlay(frame), 0, 0);
-  ctx.font = 'bold 34px system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6; ctx.textBaseline = 'top';
+  ctx.font = 'bold 34px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6; ctx.textBaseline = 'top';
   ctx.fillText(`${Math.floor(frame.t)} 年`, 14, 12);
-  ctx.font = '16px system-ui, sans-serif';
+  ctx.font = '16px "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif';
   ctx.fillText(`森林緩衝帯 ${frame.areaHa.toFixed(1)} ha  ${frame.mode === 'pred' ? '［予測］' : frame.mode === 'interp' ? '［補間］' : '［観測］'}`, 14, 54);
   return c;
 }
