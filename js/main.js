@@ -60,8 +60,13 @@ function preparePhotos(data) {
 function drawPhotos(ctx) {
   if (state.display.showPhotos === false || !state.photos.length) return;
   ctx.save();
+  // 脈動する波紋（周期 1.8 秒、点ごとに位相をずらす）
+  const t = performance.now() / 1800;
   state.photos.forEach((p, k) => {
     const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 9 : 6;
+    const ph = (t + k * 0.13) % 1;
+    ctx.beginPath(); ctx.arc(q.x, q.y, r + 2 + ph * 12, 0, Math.PI * 2);
+    ctx.strokeStyle = sel ? `rgba(255,212,0,${(1 - ph) * 0.9})` : `rgba(40,120,255,${(1 - ph) * 0.8})`; ctx.lineWidth = 2; ctx.stroke();
     if (p.dir != null && (sel || hov)) { // 撮影方向の矢印（カーソルを合わせた点と選択中の点だけ）
       const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
       const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
@@ -385,7 +390,14 @@ const viewer = $('viewer');
 const vctx = viewer.getContext('2d');
 let overlayCanvas = null, overlayCtx = null, overlayData = null;
 let renderQueued = false;
-function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); } }
+let sceneDirty = true; // 写真＋オーバーレイの再合成が必要か（アイコン層だけの更新では不要）
+function requestRender() { sceneDirty = true; if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); } }
+let sceneCanvas = null, sceneCtx = null;
+// カメラアイコンの脈動アニメーション用ループ（写真の点が表示されている間だけ軽い再描画を続ける）
+function animLoop() {
+  if (state.timeline && state.photos.length && state.display.showPhotos !== false && !document.hidden) render();
+  requestAnimationFrame(animLoop);
+}
 
 function fitView(rect) {
   const cw = viewer.clientWidth, ch = viewer.clientHeight;
@@ -497,13 +509,19 @@ function render() {
   vctx.setTransform(1, 0, 0, 1, 0, 0);
   vctx.fillStyle = '#111'; vctx.fillRect(0, 0, viewer.width, viewer.height);
   if (!state.timeline) return;
-  const frame = computeFrame(state.year);
+  const frame = sceneDirty || !lastFrame ? computeFrame(state.year) : lastFrame;
   lastFrame = frame;
   const v = state.view;
+  if (!sceneCanvas) { sceneCanvas = document.createElement('canvas'); sceneCanvas.width = state.W; sceneCanvas.height = state.H; sceneCtx = sceneCanvas.getContext('2d'); }
+  if (sceneDirty) {
+    sceneCtx.setTransform(1, 0, 0, 1, 0, 0);
+    drawBase(sceneCtx, frame, state.W, state.H);
+    if (state.display.showOverlay !== false) sceneCtx.drawImage(buildOverlay(frame), 0, 0);
+    sceneDirty = false;
+  }
   vctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, dpr * v.tx, dpr * v.ty);
   vctx.imageSmoothingEnabled = true;
-  drawBase(vctx, frame, state.W, state.H);
-  if (state.display.showOverlay !== false) vctx.drawImage(buildOverlay(frame), 0, 0);
+  vctx.drawImage(sceneCanvas, 0, 0);
   vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
   if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
@@ -1159,7 +1177,7 @@ async function init() {
     rebuildStartOptions();
     state.year = Math.min(...state.scenes.map(s => s.year));
     rebuildTimeline(); renderSceneTable(); refreshParamPanel();
-    initialView(); render();
+    initialView(); render(); requestAnimationFrame(animLoop);
     status.textContent = `${state.W}×${state.H} px · ${state.mPerPx.toFixed(2)} m/px · ${state.scenes.length} 時期`;
     if (state.settingsMigrated) { save(); $('exportNote').textContent = '判定パラメータの既定値が更新されたため、保存されていた古いパラメータを既定値に置き換えました（サンプル・住居・多角形は引き継いでいます）。'; }
     clearTimeout(watchdog);
