@@ -26,10 +26,11 @@
       <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="zoomFit" title="全体表示">⤢</button><button id="btnHome" title="初期表示（集落周辺）">⌂</button></div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
-        <a id="photoLink" target="_blank" rel="noopener"><img id="photoImg" alt="現地写真"></a>
+        <div class="imgWrap" id="photoImgWrap" title="クリックで全画面表示"><img id="photoImg" alt="現地写真"><span class="expand" aria-hidden="true">⤢</span><span class="hint">クリックで全画面</span></div>
         <div id="photoMeta"></div>
         <div class="btns"><button id="photoPrev">◀ 前</button><button id="photoNext">次 ▶</button></div>
       </div>
+      <div id="lightbox" hidden><img id="lightboxImg" alt="現地写真（全画面）"><div id="lightboxCap"></div><button id="lightboxClose" title="閉じる">×</button><button id="lightboxPrev" title="前">◀</button><button id="lightboxNext" title="次">▶</button></div>
       <div id="loading"><div style="max-width:560px;text-align:center;line-height:1.6">画像を読み込んで分類しています…<br><small id="loadingHint">この表示のまま変わらない場合、スクリプトの実行が許可されていない環境（ファイルプレビューなど）です。ブラウザで直接開くか、サーバー経由で開いてください。</small></div></div>
     </div>
     <div id="legend">

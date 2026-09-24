@@ -53,7 +53,20 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 @media (max-width: 720px) { #zoomCtl button { width: 42px; height: 42px; } #zoomCtl { bottom: 48px; } }
 #photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 12px; }
 #photoPopup[hidden] { display: none; }
+#photoPopup .imgWrap { position: relative; cursor: zoom-in; }
 #photoPopup img { width: 100%; display: block; border-radius: 4px; }
+#photoPopup .expand { position: absolute; right: 6px; bottom: 6px; width: 28px; height: 28px; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+#photoPopup .hint { position: absolute; left: 6px; bottom: 8px; font-size: 10px; color: #fff; background: rgba(0,0,0,.55); padding: 2px 6px; border-radius: 4px; pointer-events: none; }
+#photoPopup .imgWrap:hover .expand { background: rgba(227,73,72,.9); }
+#lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.92); display: flex; align-items: center; justify-content: center; }
+#lightbox[hidden] { display: none; }
+#lightbox img { max-width: 96vw; max-height: 88vh; object-fit: contain; box-shadow: 0 4px 24px rgba(0,0,0,.6); }
+#lightbox #lightboxCap { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: #fff; font-size: 13px; text-shadow: 0 1px 3px #000; }
+#lightbox button { position: absolute; background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 22px; width: 44px; height: 44px; font-size: 20px; }
+#lightbox button:hover { background: rgba(255,255,255,.3); }
+#lightbox #lightboxClose { top: 14px; right: 14px; }
+#lightbox #lightboxPrev { left: 14px; top: 50%; margin-top: -22px; }
+#lightbox #lightboxNext { right: 14px; top: 50%; margin-top: -22px; }
 #photoPopup #photoClose { position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; padding: 0; border-radius: 14px; background: rgba(0,0,0,.6); color: #fff; border: 0; z-index: 1; }
 #photoPopup #photoMeta { margin-top: 6px; line-height: 1.5; }
 #photoPopup .btns button { background: #333; color: #fff; border-color: #555; padding: 4px 10px; min-height: 28px; }
@@ -169,10 +182,11 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
       <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="zoomFit" title="全体表示">⤢</button><button id="btnHome" title="初期表示（集落周辺）">⌂</button></div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
-        <a id="photoLink" target="_blank" rel="noopener"><img id="photoImg" alt="現地写真"></a>
+        <div class="imgWrap" id="photoImgWrap" title="クリックで全画面表示"><img id="photoImg" alt="現地写真"><span class="expand" aria-hidden="true">⤢</span><span class="hint">クリックで全画面</span></div>
         <div id="photoMeta"></div>
         <div class="btns"><button id="photoPrev">◀ 前</button><button id="photoNext">次 ▶</button></div>
       </div>
+      <div id="lightbox" hidden><img id="lightboxImg" alt="現地写真（全画面）"><div id="lightboxCap"></div><button id="lightboxClose" title="閉じる">×</button><button id="lightboxPrev" title="前">◀</button><button id="lightboxNext" title="次">▶</button></div>
       <div id="loading"><div style="max-width:560px;text-align:center;line-height:1.6">画像を読み込んで分類しています…<br><small id="loadingHint">この表示のまま変わらない場合、スクリプトの実行が許可されていない環境（ファイルプレビューなど）です。ブラウザで直接開くか、サーバー経由で開いてください。</small></div></div>
     </div>
     <div id="legend">
@@ -1627,7 +1641,8 @@ function showPhoto(k) {
   const pop = $('photoPopup');
   if (k < 0 || k >= state.photos.length) { state.photoIndex = -1; pop.hidden = true; requestRender(); return; }
   state.photoIndex = k; const p = state.photos[k]; showPhotoHover(-1);
-  $('photoImg').src = p.mid; $('photoLink').href = p.full;
+  $('photoImg').src = p.mid;
+  if (!$('lightbox').hidden) openLightbox(k);
   const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
   $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   pop.hidden = false; requestRender();
@@ -1646,7 +1661,21 @@ function showPhotoHover(k, sx, sy) {
   if (x + w > W - 8) x = sx - w - 16; if (y < 8) y = 8; if (y + h > H - 8) y = H - h - 8;
   el.style.left = x + 'px'; el.style.top = y + 'px';
 }
+function openLightbox(k) {
+  const p = state.photos[k]; if (!p) return;
+  const lb = $('lightbox'); const img = $('lightboxImg');
+  img.src = p.full; img.onerror = () => { img.onerror = null; img.src = p.mid; };
+  $('lightboxCap').textContent = `${k + 1} / ${state.photos.length}  ${p.file}  ${p.time || ''}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}`;
+  lb.hidden = false;
+}
+function closeLightbox() { $('lightbox').hidden = true; $('lightboxImg').src = ''; }
 function setupPhotos() {
+  $('photoImgWrap').addEventListener('click', () => { if (state.photoIndex >= 0) openLightbox(state.photoIndex); });
+  $('lightboxClose').addEventListener('click', closeLightbox);
+  $('lightbox').addEventListener('click', (e) => { if (e.target === $('lightbox') || e.target === $('lightboxImg')) closeLightbox(); });
+  $('lightboxPrev').addEventListener('click', (e) => { e.stopPropagation(); showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length); });
+  $('lightboxNext').addEventListener('click', (e) => { e.stopPropagation(); showPhoto((state.photoIndex + 1) % state.photos.length); });
+  window.addEventListener('keydown', (e) => { if ($('lightbox').hidden) return; if (e.key === 'Escape') closeLightbox(); else if (e.key === 'ArrowRight') $('lightboxNext').click(); else if (e.key === 'ArrowLeft') $('lightboxPrev').click(); });
   bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); syncLegend(); requestRender(); });
   $('photoClose').addEventListener('click', () => showPhoto(-1));
   $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
@@ -2500,6 +2529,7 @@ function setupViewer() {
   }, { passive: false });
   window.addEventListener('keydown', (e) => {
     if (e.target.matches('input, select, textarea')) return;
+    if (!$('lightbox').hidden) return;
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));

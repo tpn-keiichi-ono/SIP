@@ -99,7 +99,8 @@ function showPhoto(k) {
   const pop = $('photoPopup');
   if (k < 0 || k >= state.photos.length) { state.photoIndex = -1; pop.hidden = true; requestRender(); return; }
   state.photoIndex = k; const p = state.photos[k]; showPhotoHover(-1);
-  $('photoImg').src = p.mid; $('photoLink').href = p.full;
+  $('photoImg').src = p.mid;
+  if (!$('lightbox').hidden) openLightbox(k);
   const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
   $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   pop.hidden = false; requestRender();
@@ -118,7 +119,21 @@ function showPhotoHover(k, sx, sy) {
   if (x + w > W - 8) x = sx - w - 16; if (y < 8) y = 8; if (y + h > H - 8) y = H - h - 8;
   el.style.left = x + 'px'; el.style.top = y + 'px';
 }
+function openLightbox(k) {
+  const p = state.photos[k]; if (!p) return;
+  const lb = $('lightbox'); const img = $('lightboxImg');
+  img.src = p.full; img.onerror = () => { img.onerror = null; img.src = p.mid; };
+  $('lightboxCap').textContent = `${k + 1} / ${state.photos.length}  ${p.file}  ${p.time || ''}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}`;
+  lb.hidden = false;
+}
+function closeLightbox() { $('lightbox').hidden = true; $('lightboxImg').src = ''; }
 function setupPhotos() {
+  $('photoImgWrap').addEventListener('click', () => { if (state.photoIndex >= 0) openLightbox(state.photoIndex); });
+  $('lightboxClose').addEventListener('click', closeLightbox);
+  $('lightbox').addEventListener('click', (e) => { if (e.target === $('lightbox') || e.target === $('lightboxImg')) closeLightbox(); });
+  $('lightboxPrev').addEventListener('click', (e) => { e.stopPropagation(); showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length); });
+  $('lightboxNext').addEventListener('click', (e) => { e.stopPropagation(); showPhoto((state.photoIndex + 1) % state.photos.length); });
+  window.addEventListener('keydown', (e) => { if ($('lightbox').hidden) return; if (e.key === 'Escape') closeLightbox(); else if (e.key === 'ArrowRight') $('lightboxNext').click(); else if (e.key === 'ArrowLeft') $('lightboxPrev').click(); });
   bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); syncLegend(); requestRender(); });
   $('photoClose').addEventListener('click', () => showPhoto(-1));
   $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
@@ -972,6 +987,7 @@ function setupViewer() {
   }, { passive: false });
   window.addEventListener('keydown', (e) => {
     if (e.target.matches('input, select, textarea')) return;
+    if (!$('lightbox').hidden) return;
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
