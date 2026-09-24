@@ -4,7 +4,7 @@ window.SIP_CONFIG = {
   title: '森林緩衝帯 消失シミュレーター',
   // 判定パラメータの版。これを上げると、ブラウザに保存された古いパラメータ（帯の幅・厳しさなど）は破棄され、
   // 利用者が追加したサンプル・住居・多角形だけが引き継がれる。
-  settingsVersion: 3,
+  settingsVersion: 4,
   // 5 枚とも同じ範囲・同じ縮尺（地理院地図のスケールバー「100 m」= 51 px）で切り出されている前提
   scale: { barPx: 51, barMeters: 100 },
   // 共通の水域マスクを作るために使うカラー画像（海が青く写っているもの）と、海岸線から除外する帯の幅
@@ -16,15 +16,15 @@ window.SIP_CONFIG = {
   // 現地写真（EXIF の GPS 付き）。photos.json は tools/extract_gps.py と同じ EXIF から生成。
   photos: { list: 'data/photos/mauracho/photos.json', label: '真浦町 現地写真 2026-09-23' },
   // 観測時期。year は撮影年（推定）。順序はここで決めず、year の昇順に並べ替えて使う。
-  // ※ 年は画像の見た目（モノクロ／カラー、色調、解像度）から推定した仮の値。実際の撮影年に修正してください。
+  // 年は地理院地図の年代バー（1961〜1969 / 1974〜1978 / 2010 / 2020 / 2022）に基づく。範囲の時期は中央年を使用。
   // params は時期別の上書き。結果に年ごとの偏りを持ち込まないため既定では空にし、全時期に同じ判定パラメータを使う。
   // 時期別に異なるのは教師サンプルだけで、これは写真ごとの露出・季節・解像度の違い（同じ土地被覆でも見え方が違う）を吸収するためのもの。
   scenes: [
-    { id: '1', file: 'data/images/1.webp', year: 1965, label: '1960年代 モノクロ空中写真', estimated: true, params: {} },
-    { id: '2', file: 'data/images/2.webp', year: 1976, label: '1970年代後半 カラー', estimated: true, params: {} },
-    { id: '5', file: 'data/images/5.webp', year: 1985, label: '1980年代 カラー', estimated: true, params: {} },
+    { id: '1', file: 'data/images/1.webp', year: 1965, label: '1961〜1969年 モノクロ空中写真', estimated: false, params: {} },
+    { id: '2', file: 'data/images/2.webp', year: 1976, label: '1974〜1978年 カラー', estimated: false, params: {} },
+    { id: '5', file: 'data/images/5.webp', year: 2010, label: '2010年', estimated: false, params: {} },
     { id: '3', file: 'data/images/3.webp', year: 2022, label: '2022年', estimated: false, params: {} },
-    { id: '4', file: 'data/images/4.webp', year: 2020, label: '高解像度写真（年は推定）', estimated: true, params: {} },
+    { id: '4', file: 'data/images/4.webp', year: 2020, label: '2020年', estimated: false, params: {} },
   ],
   // 教師サンプル（画像座標の円）。shared は全時期に共通、byScene は時期ごとの追加。
   // 森林（密） forest / 疎林・草地（間伐地・緩衝帯候補） sparse / 田畑 open / 人工物・裸地 built。画面上でクリックして追加・削除できる。

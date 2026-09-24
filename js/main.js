@@ -181,7 +181,7 @@ function applySaved(saved) {
   // 既定パラメータの版が変わっていたら、保存済みのパラメータ類は捨てて既定値を使う（利用者の描いた要素は残す）
   if ((saved.settingsVersion || 0) !== (CFG.settingsVersion || 0)) {
     delete saved.display; delete saved.buffer; delete saved.sim; delete saved.coastBandM;
-    if (saved.scenes) for (const ss of saved.scenes) { delete ss.params; }
+    if (saved.scenes) for (const ss of saved.scenes) { delete ss.params; delete ss.year; delete ss.label; delete ss.estimated; }
     if (saved.settlement) { delete saved.settlement.autoM; delete saved.settlement.houseRadiusM; }
     state.settingsMigrated = true;
   }
@@ -487,7 +487,7 @@ function render() {
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
   updateHud(frame);
   chart.setCurrentYear(state.year);
-  $('yearSlider').value = state.year;
+  updateSliderThumb();
 }
 
 function updateHud(frame) {
@@ -514,15 +514,15 @@ function setYear(y) {
   requestRender();
 }
 function updateTimelineUI() {
-  const tl = state.timeline; const sl = $('yearSlider');
-  sl.min = tl.xMin; sl.max = tl.xMax; sl.step = 0.5; sl.value = state.year;
+  const tl = state.timeline;
+  updateSliderThumb();
   const ticks = $('ticks'); ticks.innerHTML = '';
-  // つまみの幅（約 16px）分だけ可動範囲が狭いので、その分を補正して目盛りを置く
-  const THUMB = 16;
-  const place = (yr) => `calc(${THUMB / 2}px + (100% - ${THUMB}px) * ${(yr - tl.xMin) / (tl.xMax - tl.xMin)})`;
+  // 目盛りとつまみは同じ座標系（左右の余白 = つまみ半径）で配置する
+  const place = null;
+  const setPos = (el, yr) => { el.style.setProperty('--pos', String((yr - tl.xMin) / (tl.xMax - tl.xMin))); };
   let prevYear = -Infinity; const span = tl.xMax - tl.xMin;
   for (const s of tl.scenes) {
-    const el = document.createElement('div'); el.className = 'tick'; el.style.left = place(s.year);
+    const el = document.createElement('div'); el.className = 'tick'; setPos(el, s.year);
     // 隣の目盛りと近いときはラベルを一段下げて重なりを避ける
     if ((s.year - prevYear) / span < 0.07) el.classList.add('alt');
     prevYear = s.year;
@@ -531,9 +531,32 @@ function updateTimelineUI() {
   }
   const dy = tl.projection.disappearYear;
   if (dy != null && dy > tl.start.year && dy <= tl.xMax) {
-    const el = document.createElement('div'); el.className = 'tick disappear'; el.style.left = place(dy); el.textContent = `消失 ${dy.toFixed(0)}`;
+    const el = document.createElement('div'); el.className = 'tick disappear'; setPos(el, dy); el.textContent = `消失 ${dy.toFixed(0)}`;
     el.addEventListener('click', () => setYear(Math.ceil(dy * 2) / 2)); ticks.appendChild(el);
   }
+}
+function updateSliderThumb() {
+  const tl = state.timeline; if (!tl) return;
+  const f = Math.min(1, Math.max(0, (state.year - tl.xMin) / (tl.xMax - tl.xMin)));
+  const sl = $('yearSlider'); sl.style.setProperty('--pos', String(f));
+  sl.querySelector('.thumb').style.left = `calc(var(--thumb-half) + ${f} * (100% - 2 * var(--thumb-half)))`;
+  sl.querySelector('.fill').style.width = `calc(${f} * (100% - 2 * var(--thumb-half)))`;
+  sl.setAttribute('aria-valuemin', tl.xMin); sl.setAttribute('aria-valuemax', tl.xMax); sl.setAttribute('aria-valuenow', state.year);
+}
+function setupSlider() {
+  const sl = $('yearSlider');
+  const yearFromEvent = (e) => {
+    const tl = state.timeline; if (!tl) return null;
+    const r = sl.getBoundingClientRect(); const half = parseFloat(getComputedStyle(sl).getPropertyValue('--thumb-half')) || 9;
+    const f = Math.min(1, Math.max(0, (e.clientX - r.left - half) / (r.width - 2 * half)));
+    return Math.round((tl.xMin + f * (tl.xMax - tl.xMin)) * 2) / 2;
+  };
+  let dragging = false;
+  sl.addEventListener('pointerdown', (e) => { dragging = true; try { sl.setPointerCapture(e.pointerId); } catch {} if (state.playing) togglePlay(false); const y = yearFromEvent(e); if (y != null) setYear(y); });
+  sl.addEventListener('pointermove', (e) => { if (!dragging) return; const y = yearFromEvent(e); if (y != null) setYear(y); });
+  const up = () => { dragging = false; };
+  sl.addEventListener('pointerup', up); sl.addEventListener('pointercancel', up);
+  sl.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5)); else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5)); else return; e.preventDefault(); });
 }
 function observedAreaAt(t) {
   const sc = state.timeline.scenes;
@@ -1078,7 +1101,7 @@ async function init() {
     $('btnPlay').addEventListener('click', () => togglePlay());
     $('btnPrev').addEventListener('click', () => { const ys = state.timeline.scenes.map(s => s.year).filter(y => y < state.year - 1e-6); setYear(ys.length ? ys[ys.length - 1] : state.timeline.xMin); });
     $('btnNext').addEventListener('click', () => { const ys = state.timeline.scenes.map(s => s.year).filter(y => y > state.year + 1e-6); setYear(ys.length ? ys[0] : state.timeline.xMax); });
-    $('yearSlider').addEventListener('input', (e) => { if (state.playing) togglePlay(false); setYear(Number(e.target.value)); });
+    setupSlider();
     rebuildStartOptions();
     state.year = Math.min(...state.scenes.map(s => s.year));
     rebuildTimeline(); renderSceneTable(); refreshParamPanel();
