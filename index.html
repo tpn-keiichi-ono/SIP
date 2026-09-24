@@ -130,10 +130,11 @@
       <summary>緩衝帯の定義・手動修正</summary>
       <div class="body">
         <p class="note"><b>緩衝帯</b> = 生活空間（住宅地・田畑・人工物）の周囲の帯のうち、密な森林ではない「疎林・草地」の部分。帯の中が森林になると緩衝帯が失われたとみなします。</p>
-        <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="50"><span class="val" id="edgeBandVal">50 m</span></div>
+        <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="100"><span class="val" id="edgeBandVal">100 m</span></div>
         <p class="note">0 にすると帯で限定せず、疎林・草地すべてを緩衝帯とします。</p>
         <div class="ctl"><label for="forestNear">森林からの距離 (m) 以内</label><input type="range" id="forestNear" min="0" max="150" step="10" value="40"><span class="val" id="forestNearVal">40 m</span></div>
         <div class="ctl"><label for="minForest">森林とみなす塊の最小面積</label><input type="range" id="minForest" min="0" max="5" step="0.25" value="1"><span class="val" id="minForestVal">1 ha 以上</span></div>
+        <div class="ctl"><label for="adjacency">生活空間との接続</label><input type="range" id="adjacency" min="0" max="60" step="4" value="0"><span class="val" id="adjacencyVal">条件なし（帯の中ならよい）</span></div>
         <div class="ctl"><label for="coastAway">海岸から (m) 以上離す</label><input type="range" id="coastAway" min="0" max="200" step="10" value="60"><span class="val" id="coastAwayVal">60 m</span></div>
         <p class="note">緩衝帯は森林に面した側だけに限ります。「森林からの距離」以内にまとまった森林（「森林とみなす塊の最小面積」以上）がない縁は緩衝帯にしません。田畑の間の小さな木立や屋敷林は森林とみなしません。海岸に近い部分も除きます。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>

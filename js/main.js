@@ -19,7 +19,7 @@ const state = {
   houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
-  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1 },
+  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1, adjacencyM: CFG.buffer?.adjacencyM ?? 12 },
   sim: { ...CFG.simulation },
   samples: normalizeSamples(CFG.samples),
   sampleTool: { mode: null, radius: 10, shared: false, show: false },
@@ -151,7 +151,7 @@ function serialize() {
       id: s.id, file: s.file, year: s.year, label: s.label, estimated: !!s.estimated, params: s.params,
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
-    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, aoi: state.aoiPoints }, sim: state.sim,
+    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, adjacencyM: state.buffer.adjacencyM, aoi: state.aoiPoints }, sim: state.sim,
     samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
   };
 }
@@ -163,7 +163,7 @@ function save() {
 function applySaved(saved) {
   if (!saved) return;
   if (saved.display) Object.assign(state.display, saved.display);
-  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.buffer.minForestHa = saved.buffer.minForestHa ?? state.buffer.minForestHa; state.aoiPoints = saved.buffer.aoi || []; }
+  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.buffer.minForestHa = saved.buffer.minForestHa ?? state.buffer.minForestHa; state.buffer.adjacencyM = saved.buffer.adjacencyM ?? state.buffer.adjacencyM; state.aoiPoints = saved.buffer.aoi || []; }
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
@@ -220,7 +220,7 @@ function recomputeScene(s) {
 function recomputeBuffer(s) {
   const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx) });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx), adjacencyPx: (state.buffer.adjacencyM ?? 12) / state.mPerPx });
   s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
@@ -645,6 +645,7 @@ function scheduleSceneRecompute(s) {
 function setupBufferPanel() {
   bindRange('forestNear', 'forestNearVal', () => state.buffer.forestNearM, (v) => { state.buffer.forestNearM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
   bindRange('minForest', 'minForestVal', () => state.buffer.minForestHa, (v) => { state.buffer.minForestHa = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} ha 以上` : '制限なし'));
+  bindRange('adjacency', 'adjacencyVal', () => state.buffer.adjacencyM, (v) => { state.buffer.adjacencyM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m 以内で接する塊` : '条件なし（帯の中ならよい）'));
   bindRange('coastAway', 'coastAwayVal', () => state.buffer.coastAwayM, (v) => { state.buffer.coastAwayM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし（疎林・草地すべて）'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });

@@ -251,10 +251,11 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
       <summary>緩衝帯の定義・手動修正</summary>
       <div class="body">
         <p class="note"><b>緩衝帯</b> = 生活空間（住宅地・田畑・人工物）の周囲の帯のうち、密な森林ではない「疎林・草地」の部分。帯の中が森林になると緩衝帯が失われたとみなします。</p>
-        <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="50"><span class="val" id="edgeBandVal">50 m</span></div>
+        <div class="ctl"><label for="edgeBand">生活空間からの帯の幅 (m)</label><input type="range" id="edgeBand" min="0" max="300" step="10" value="100"><span class="val" id="edgeBandVal">100 m</span></div>
         <p class="note">0 にすると帯で限定せず、疎林・草地すべてを緩衝帯とします。</p>
         <div class="ctl"><label for="forestNear">森林からの距離 (m) 以内</label><input type="range" id="forestNear" min="0" max="150" step="10" value="40"><span class="val" id="forestNearVal">40 m</span></div>
         <div class="ctl"><label for="minForest">森林とみなす塊の最小面積</label><input type="range" id="minForest" min="0" max="5" step="0.25" value="1"><span class="val" id="minForestVal">1 ha 以上</span></div>
+        <div class="ctl"><label for="adjacency">生活空間との接続</label><input type="range" id="adjacency" min="0" max="60" step="4" value="0"><span class="val" id="adjacencyVal">条件なし（帯の中ならよい）</span></div>
         <div class="ctl"><label for="coastAway">海岸から (m) 以上離す</label><input type="range" id="coastAway" min="0" max="200" step="10" value="60"><span class="val" id="coastAwayVal">60 m</span></div>
         <p class="note">緩衝帯は森林に面した側だけに限ります。「森林からの距離」以内にまとまった森林（「森林とみなす塊の最小面積」以上）がない縁は緩衝帯にしません。田畑の間の小さな木立や屋敷林は森林とみなしません。海岸に近い部分も除きます。</p>
         <div class="btns"><button id="btnAoi">解析範囲を描く</button><button id="btnAoiDone" hidden>範囲を確定</button><button id="btnAoiClear">範囲をクリア</button></div>
@@ -352,15 +353,18 @@ window.SIP_CONFIG = {
       '1': { sparse: [{ x: 300, y: 600, r: 12 }, { x: 450, y: 520, r: 10 }, { x: 750, y: 450, r: 10 }] },
       '2': { sparse: [{ x: 750, y: 450, r: 10 }, { x: 300, y: 600, r: 10 }, { x: 560, y: 500, r: 8 }] },
       '5': { sparse: [{ x: 750, y: 450, r: 10 }, { x: 700, y: 480, r: 8 }, { x: 560, y: 500, r: 8 }] },
-      '4': { sparse: [{ x: 740, y: 230, r: 10 }, { x: 790, y: 215, r: 8 }, { x: 620, y: 400, r: 8 }, { x: 660, y: 440, r: 8 }, { x: 830, y: 470, r: 8 }], forest: [{ x: 700, y: 150, r: 18 }, { x: 620, y: 110, r: 14 }, { x: 770, y: 120, r: 12 }, { x: 560, y: 180, r: 10 }, { x: 1000, y: 500, r: 15 }, { x: 1060, y: 330, r: 12 }], built: [{ x: 515, y: 300, r: 4 }, { x: 385, y: 380, r: 5 }] },
-      '3': { sparse: [{ x: 740, y: 230, r: 10 }, { x: 660, y: 440, r: 8 }, { x: 560, y: 480, r: 8 }], forest: [{ x: 1000, y: 350, r: 12 }, { x: 1120, y: 300, r: 12 }, { x: 1000, y: 500, r: 15 }, { x: 720, y: 600, r: 15 }, { x: 400, y: 620, r: 15 }, { x: 300, y: 560, r: 12 }, { x: 450, y: 650, r: 15 }, { x: 560, y: 700, r: 12 }, { x: 850, y: 120, r: 15 }, { x: 770, y: 180, r: 10 }, { x: 1120, y: 150, r: 12 }, { x: 1130, y: 400, r: 10 }, { x: 850, y: 470, r: 12 }, { x: 620, y: 480, r: 8 }] },
+      // 現地の方の実例: 集落南側の旧道沿いの帯（緩衝帯）。2022 年には森林化して消失
+      '4': { sparse: [{ x: 740, y: 230, r: 10 }, { x: 790, y: 215, r: 8 }, { x: 620, y: 400, r: 8 }, { x: 660, y: 440, r: 8 }, { x: 830, y: 470, r: 8 }, { x: 522, y: 494, r: 5 }, { x: 560, y: 502, r: 5 }, { x: 600, y: 512, r: 5 }], forest: [{ x: 700, y: 150, r: 18 }, { x: 620, y: 110, r: 14 }, { x: 770, y: 120, r: 12 }, { x: 560, y: 180, r: 10 }, { x: 1000, y: 500, r: 15 }, { x: 1060, y: 330, r: 12 }], built: [{ x: 515, y: 300, r: 4 }, { x: 385, y: 380, r: 5 }] },
+      '3': { sparse: [{ x: 740, y: 230, r: 10 }, { x: 660, y: 440, r: 8 }], forest: [{ x: 560, y: 502, r: 6 }, { x: 600, y: 512, r: 6 }, { x: 1000, y: 350, r: 12 }, { x: 1120, y: 300, r: 12 }, { x: 1000, y: 500, r: 15 }, { x: 720, y: 600, r: 15 }, { x: 400, y: 620, r: 15 }, { x: 300, y: 560, r: 12 }, { x: 450, y: 650, r: 15 }, { x: 560, y: 700, r: 12 }, { x: 850, y: 120, r: 15 }, { x: 770, y: 180, r: 10 }, { x: 1120, y: 150, r: 12 }, { x: 1130, y: 400, r: 10 }, { x: 850, y: 470, r: 12 }, { x: 620, y: 480, r: 8 }] },
     },
   },
   display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 生活空間（住宅地・田畑・人工物）の周囲 edgeBandM (m) の帯のうち疎林・草地の部分。解析範囲 = 画像全体（aoi: []）
   // forestNearM: この距離以内に密な森林がある部分だけ（森に面した側だけ）、coastAwayM: 海岸からこの距離以内は緩衝帯にしない
   // minForestHa: 緩衝帯が接すべき「まとまった森林」の最小面積 (ha)。田畑の間の木立は森林扱いしない
-  buffer: { edgeBandM: 50, forestNearM: 40, coastAwayM: 60, minForestHa: 1, aoi: [] },
+  // adjacencyM: 緩衝帯の塊が生活空間からこの距離以内で接していることを要求（0 で条件なし）
+  // 現地の実例（集落南側の旧道沿いの帯が緩衝帯、2022 年に森林化して消失）に合わせ、帯 100 m・接続条件なしを採用
+  buffer: { edgeBandM: 100, forestNearM: 40, coastAwayM: 60, minForestHa: 1, adjacencyM: 0, aoi: [] },
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {
@@ -1497,7 +1501,7 @@ const state = {
   houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
   display: { ...CFG.display },
-  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1 },
+  buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1, adjacencyM: CFG.buffer?.adjacencyM ?? 12 },
   sim: { ...CFG.simulation },
   samples: normalizeSamples(CFG.samples),
   sampleTool: { mode: null, radius: 10, shared: false, show: false },
@@ -1629,7 +1633,7 @@ function serialize() {
       id: s.id, file: s.file, year: s.year, label: s.label, estimated: !!s.estimated, params: s.params,
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
-    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, aoi: state.aoiPoints }, sim: state.sim,
+    display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, adjacencyM: state.buffer.adjacencyM, aoi: state.aoiPoints }, sim: state.sim,
     samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
   };
 }
@@ -1641,7 +1645,7 @@ function save() {
 function applySaved(saved) {
   if (!saved) return;
   if (saved.display) Object.assign(state.display, saved.display);
-  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.buffer.minForestHa = saved.buffer.minForestHa ?? state.buffer.minForestHa; state.aoiPoints = saved.buffer.aoi || []; }
+  if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.buffer.minForestHa = saved.buffer.minForestHa ?? state.buffer.minForestHa; state.buffer.adjacencyM = saved.buffer.adjacencyM ?? state.buffer.adjacencyM; state.aoiPoints = saved.buffer.aoi || []; }
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
@@ -1698,7 +1702,7 @@ function recomputeScene(s) {
 function recomputeBuffer(s) {
   const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx) });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx), adjacencyPx: (state.buffer.adjacencyM ?? 12) / state.mPerPx });
   s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
@@ -2123,6 +2127,7 @@ function scheduleSceneRecompute(s) {
 function setupBufferPanel() {
   bindRange('forestNear', 'forestNearVal', () => state.buffer.forestNearM, (v) => { state.buffer.forestNearM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
   bindRange('minForest', 'minForestVal', () => state.buffer.minForestHa, (v) => { state.buffer.minForestHa = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} ha 以上` : '制限なし'));
+  bindRange('adjacency', 'adjacencyVal', () => state.buffer.adjacencyM, (v) => { state.buffer.adjacencyM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m 以内で接する塊` : '条件なし（帯の中ならよい）'));
   bindRange('coastAway', 'coastAwayVal', () => state.buffer.coastAwayM, (v) => { state.buffer.coastAwayM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : '条件なし'));
   bindRange('edgeBand', 'edgeBandVal', () => state.buffer.edgeBandM, (v) => { state.buffer.edgeBandM = v; save(); scheduleBufferRecompute(); }, (v) => (v > 0 ? `${v} m` : 'なし（疎林・草地すべて）'));
   $('btnAoi').addEventListener('click', () => { state.aoiDrawing = !state.aoiDrawing; if (state.aoiDrawing) { state.aoiPoints = []; state.aoiMask = null; } $('btnAoi').classList.toggle('active', state.aoiDrawing); $('btnAoiDone').hidden = !state.aoiDrawing; viewer.classList.toggle('drawing', state.aoiDrawing); requestRender(); });
