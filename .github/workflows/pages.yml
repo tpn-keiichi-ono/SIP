@@ -1,0 +1,36 @@
+# GitHub Pages への公開。リポジトリの Settings → Pages → Source を「GitHub Actions」にすると有効になります。
+# 公開 URL: https://tpn-keiichi-ono.github.io/SIP/
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [claude/focused-ritchie-mmb4jy, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          rsync -a --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'out' --exclude 'tools' --exclude 'package.json' --exclude '_site' ./ _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

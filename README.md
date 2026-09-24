@@ -8,6 +8,12 @@
 
 ![概要](docs/screenshot.png)
 
+## 公開ページ（GitHub Pages）
+
+https://tpn-keiichi-ono.github.io/SIP/
+
+`.github/workflows/pages.yml` が既定ブランチへの push ごとに自動で公開します。初回のみ、リポジトリの **Settings → Pages → Build and deployment → Source** を「**GitHub Actions**」にしてください。
+
 ## 使い方
 
 ```bash
