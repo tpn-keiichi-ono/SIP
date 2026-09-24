@@ -32,6 +32,7 @@ const state = {
   brush: { mode: 0, size: 12, painting: false },
   recording: null,
   photos: [], photoIndex: -1, photoHover: -1,
+  photoOffset: { dxM: CFG.photos?.offsetM?.dx ?? 0, dyM: CFG.photos?.offsetM?.dy ?? 0 },
 };
 
 // ---------- 現地写真（GPS 付き） ----------
@@ -44,9 +45,9 @@ function mercToImage(lat, lon) {
   return { x: x - g.originX, y: y - g.originY };
 }
 async function loadPhotos() {
-  if (window.SIP_PHOTOS) { state.photos = preparePhotos(window.SIP_PHOTOS); return; }
+  if (window.SIP_PHOTOS) { state.photosRaw = window.SIP_PHOTOS; state.photos = preparePhotos(window.SIP_PHOTOS); return; }
   if (!CFG.photos?.list || !CFG.georef) return;
-  try { const res = await fetch(CFG.photos.list); if (!res.ok) throw new Error(res.status); state.photos = preparePhotos(await res.json()); }
+  try { const res = await fetch(CFG.photos.list); if (!res.ok) throw new Error(res.status); state.photosRaw = await res.json(); state.photos = preparePhotos(state.photosRaw); }
   catch (e) { console.warn('現地写真の一覧を読み込めません', e); }
 }
 function preparePhotos(data) {
@@ -54,7 +55,8 @@ function preparePhotos(data) {
   return (data.photos || []).map((p, i) => {
     const q = mercToImage(p.lat, p.lon);
     const base = p.file.replace(/\.[^.]+$/, '');
-    return { ...p, i, x: q?.x, y: q?.y, thumb: p.thumbData || `${dir}/thumbs/${base}.jpg`, mid: p.midData || p.thumbData || `${dir}/mid/${base}.jpg`, full: `${dir}/${p.file}` };
+    const ox = (state.photoOffset.dxM || 0) / state.mPerPx, oy = (state.photoOffset.dyM || 0) / state.mPerPx;
+    return { ...p, i, x: q == null ? undefined : q.x + ox, y: q == null ? undefined : q.y + oy, thumb: p.thumbData || `${dir}/thumbs/${base}.jpg`, mid: p.midData || p.thumbData || `${dir}/mid/${base}.jpg`, full: `${dir}/${p.file}` };
   }).filter(p => Number.isFinite(p.x));
 }
 function drawPhotos(ctx) {
@@ -131,7 +133,17 @@ function openLightbox(k) {
   lb.hidden = false;
 }
 function closeLightbox() { $('lightbox').hidden = true; $('lightboxImg').src = ''; }
+function applyPhotoOffset(dx, dy, reset) {
+  if (reset) state.photoOffset = { dxM: 0, dyM: 0 }; else { state.photoOffset.dxM += dx; state.photoOffset.dyM += dy; }
+  const raw = state.photosRaw; if (raw) state.photos = preparePhotos(raw);
+  $('photoOffsetVal').textContent = `${state.photoOffset.dxM >= 0 ? '+' : ''}${state.photoOffset.dxM}, ${state.photoOffset.dyM >= 0 ? '+' : ''}${state.photoOffset.dyM} m`;
+  save(); requestRender();
+}
 function setupPhotos() {
+  $('phoW').addEventListener('click', () => applyPhotoOffset(-5, 0)); $('phoE').addEventListener('click', () => applyPhotoOffset(5, 0));
+  $('phoN').addEventListener('click', () => applyPhotoOffset(0, -5)); $('phoS').addEventListener('click', () => applyPhotoOffset(0, 5));
+  $('phoReset').addEventListener('click', () => applyPhotoOffset(0, 0, true));
+  applyPhotoOffset(0, 0);
   $('photoImgWrap').addEventListener('click', () => { if (state.photoIndex >= 0) openLightbox(state.photoIndex); });
   $('lightboxClose').addEventListener('click', closeLightbox);
   $('lightbox').addEventListener('click', (e) => { if (e.target === $('lightbox') || e.target === $('lightboxImg')) closeLightbox(); });
@@ -142,7 +154,7 @@ function setupPhotos() {
   $('photoClose').addEventListener('click', () => showPhoto(-1));
   $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
   $('photoNext').addEventListener('click', () => showPhoto((state.photoIndex + 1) % state.photos.length));
-  if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; }
+  if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; $('photoOffsetRow').hidden = true; }
   syncLegend();
 }
 
@@ -187,7 +199,7 @@ function serialize() {
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
     display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, adjacencyM: state.buffer.adjacencyM, aoi: state.aoiPoints }, sim: state.sim,
-    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement, exclusion: state.exclusion,
+    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement, exclusion: state.exclusion, photoOffset: state.photoOffset,
   };
 }
 let saveTimer = null;
@@ -209,6 +221,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.photoOffset) state.photoOffset = { dxM: +saved.photoOffset.dxM || 0, dyM: +saved.photoOffset.dyM || 0 };
   if (saved.exclusion) state.exclusion = { polygons: (saved.exclusion.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.settlement) state.settlement = normalizeSettlement({ ...state.settlement, ...saved.settlement, housesByScene: saved.settlement.housesByScene || state.settlement.housesByScene });
   if (saved.scenes) {

@@ -75,6 +75,14 @@
           <label><input type="checkbox" id="showOverlay" checked> オーバーレイ表示</label>
           <label><input type="checkbox" id="showPhotos" checked> 現地写真のピン</label>
         </div>
+        <div class="ctl" id="photoOffsetRow"><label>写真位置の補正</label>
+          <div class="btns" style="gap:3px">
+            <button id="phoW" title="西へ 5 m">←</button><button id="phoN" title="北へ 5 m">↑</button><button id="phoS" title="南へ 5 m">↓</button><button id="phoE" title="東へ 5 m">→</button><button id="phoReset" title="補正を解除">0</button>
+          </div><span class="val" id="photoOffsetVal">0, 0 m</span>
+        </div>
+        <p class="note">GPS と空中写真の位置合わせにずれがある場合、写真の地点全体を 5 m 単位で動かせます（全写真に共通）。</p>
+        <div class="checks">
+        </div>
         <div class="btns"><button id="btnFit">全体表示</button><span class="note">ドラッグで移動、ホイールまたはピンチで拡大縮小</span></div>
       </div>
     </details>

@@ -231,6 +231,14 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
           <label><input type="checkbox" id="showOverlay" checked> オーバーレイ表示</label>
           <label><input type="checkbox" id="showPhotos" checked> 現地写真のピン</label>
         </div>
+        <div class="ctl" id="photoOffsetRow"><label>写真位置の補正</label>
+          <div class="btns" style="gap:3px">
+            <button id="phoW" title="西へ 5 m">←</button><button id="phoN" title="北へ 5 m">↑</button><button id="phoS" title="南へ 5 m">↓</button><button id="phoE" title="東へ 5 m">→</button><button id="phoReset" title="補正を解除">0</button>
+          </div><span class="val" id="photoOffsetVal">0, 0 m</span>
+        </div>
+        <p class="note">GPS と空中写真の位置合わせにずれがある場合、写真の地点全体を 5 m 単位で動かせます（全写真に共通）。</p>
+        <div class="checks">
+        </div>
         <div class="btns"><button id="btnFit">全体表示</button><span class="note">ドラッグで移動、ホイールまたはピンチで拡大縮小</span></div>
       </div>
     </details>
@@ -427,9 +435,9 @@ window.SIP_CONFIG = {
     housesByScene: {
       '1': [{ x: 540, y: 293 }, { x: 545, y: 310 }, { x: 537, y: 326 }, { x: 548, y: 336 }, { x: 528, y: 351 }, { x: 541, y: 359 }, { x: 553, y: 366 }, { x: 531, y: 376 }, { x: 506, y: 386 }, { x: 512, y: 396 }, { x: 496, y: 414 }, { x: 511, y: 425 }, { x: 522, y: 436 }, { x: 536, y: 416 }, { x: 546, y: 431 }, { x: 560, y: 441 }, { x: 575, y: 406 }, { x: 571, y: 421 }, { x: 500, y: 447 }, { x: 486, y: 441 }, { x: 466, y: 446 }, { x: 447, y: 441 }, { x: 590, y: 455 }, { x: 605, y: 462 }, { x: 233, y: 650 }],
       '2': [{ x: 512, y: 302 }, { x: 520, y: 308 }, { x: 535, y: 315 }, { x: 533, y: 335 }, { x: 535, y: 350 }, { x: 545, y: 355 }, { x: 594, y: 302 }, { x: 530, y: 348 }, { x: 555, y: 362 }, { x: 533, y: 366 }, { x: 505, y: 385 }, { x: 512, y: 395 }, { x: 565, y: 392 }, { x: 575, y: 400 }, { x: 527, y: 412 }, { x: 540, y: 410 }, { x: 552, y: 406 }, { x: 568, y: 415 }, { x: 505, y: 428 }, { x: 512, y: 435 }, { x: 528, y: 438 }, { x: 545, y: 440 }, { x: 552, y: 436 }, { x: 570, y: 438 }, { x: 433, y: 442 }, { x: 447, y: 446 }, { x: 400, y: 450 }, { x: 612, y: 428 }, { x: 712, y: 428 }, { x: 205, y: 650 }, { x: 218, y: 657 }, { x: 250, y: 665 }, { x: 220, y: 675 }],
-      '5': [{ x: 515, y: 247 }, { x: 512, y: 302 }, { x: 547, y: 292 }, { x: 535, y: 300 }, { x: 535, y: 315 }, { x: 594, y: 305 }, { x: 532, y: 348 }, { x: 548, y: 357 }, { x: 555, y: 365 }, { x: 530, y: 362 }, { x: 505, y: 386 }, { x: 512, y: 395 }, { x: 560, y: 385 }, { x: 572, y: 395 }, { x: 570, y: 408 }, { x: 578, y: 415 }, { x: 556, y: 410 }, { x: 528, y: 417 }, { x: 508, y: 425 }, { x: 525, y: 438 }, { x: 548, y: 440 }, { x: 570, y: 442 }, { x: 430, y: 442 }, { x: 447, y: 447 }, { x: 447, y: 355 }, { x: 455, y: 364 }, { x: 390, y: 368 }, { x: 716, y: 428 }, { x: 707, y: 435 }, { x: 710, y: 465 }, { x: 228, y: 628 }, { x: 228, y: 643 }, { x: 245, y: 642 }, { x: 235, y: 662 }, { x: 222, y: 675 }],
-      '3': [{ x: 512, y: 307 }, { x: 507, y: 322 }, { x: 535, y: 333 }, { x: 548, y: 302 }, { x: 532, y: 350 }, { x: 555, y: 358 }, { x: 540, y: 368 }, { x: 505, y: 385 }, { x: 512, y: 395 }, { x: 565, y: 392 }, { x: 575, y: 400 }, { x: 560, y: 408 }, { x: 528, y: 418 }, { x: 505, y: 427 }, { x: 550, y: 438 }, { x: 568, y: 443 }, { x: 430, y: 442 }, { x: 447, y: 447 }, { x: 402, y: 445 }, { x: 447, y: 355 }, { x: 455, y: 364 }, { x: 542, y: 487 }, { x: 580, y: 485 }, { x: 716, y: 428 }, { x: 707, y: 435 }, { x: 710, y: 462 }, { x: 205, y: 650 }, { x: 228, y: 645 }, { x: 242, y: 665 }, { x: 226, y: 658 }],
-      '4': [{ x: 512, y: 252 }, { x: 527, y: 298 }, { x: 528, y: 322 }, { x: 552, y: 292 }, { x: 596, y: 301 }, { x: 528, y: 346 }, { x: 547, y: 352 }, { x: 533, y: 363 }, { x: 553, y: 363 }, { x: 505, y: 383 }, { x: 511, y: 394 }, { x: 527, y: 392 }, { x: 548, y: 410 }, { x: 565, y: 400 }, { x: 575, y: 405 }, { x: 574, y: 415 }, { x: 503, y: 425 }, { x: 500, y: 433 }, { x: 491, y: 437 }, { x: 526, y: 430 }, { x: 545, y: 428 }, { x: 552, y: 437 }, { x: 562, y: 430 }, { x: 571, y: 432 }, { x: 577, y: 440 }, { x: 567, y: 442 }, { x: 410, y: 440 }, { x: 433, y: 447 }, { x: 447, y: 445 }, { x: 455, y: 455 }, { x: 575, y: 483 }, { x: 590, y: 470 }, { x: 610, y: 455 }, { x: 612, y: 462 }, { x: 713, y: 431 }, { x: 722, y: 426 }, { x: 704, y: 467 }, { x: 225, y: 642 }, { x: 238, y: 662 }, { x: 222, y: 670 }, { x: 925, y: 190 }],
+      '5': [{ x: 512, y: 302 }, { x: 547, y: 292 }, { x: 535, y: 300 }, { x: 535, y: 315 }, { x: 594, y: 305 }, { x: 532, y: 348 }, { x: 548, y: 357 }, { x: 555, y: 365 }, { x: 530, y: 362 }, { x: 505, y: 386 }, { x: 512, y: 395 }, { x: 560, y: 385 }, { x: 572, y: 395 }, { x: 570, y: 408 }, { x: 578, y: 415 }, { x: 556, y: 410 }, { x: 528, y: 417 }, { x: 508, y: 425 }, { x: 525, y: 438 }, { x: 548, y: 440 }, { x: 570, y: 442 }, { x: 430, y: 442 }, { x: 447, y: 447 }, { x: 716, y: 428 }, { x: 707, y: 435 }, { x: 710, y: 465 }, { x: 228, y: 628 }, { x: 228, y: 643 }, { x: 245, y: 642 }, { x: 235, y: 662 }, { x: 222, y: 675 }],
+      '3': [{ x: 512, y: 307 }, { x: 507, y: 322 }, { x: 535, y: 333 }, { x: 548, y: 302 }, { x: 532, y: 350 }, { x: 555, y: 358 }, { x: 540, y: 368 }, { x: 505, y: 385 }, { x: 512, y: 395 }, { x: 565, y: 392 }, { x: 575, y: 400 }, { x: 560, y: 408 }, { x: 528, y: 418 }, { x: 505, y: 427 }, { x: 550, y: 438 }, { x: 568, y: 443 }, { x: 430, y: 442 }, { x: 447, y: 447 }, { x: 402, y: 445 }, { x: 542, y: 487 }, { x: 580, y: 485 }, { x: 716, y: 428 }, { x: 707, y: 435 }, { x: 710, y: 462 }, { x: 205, y: 650 }, { x: 228, y: 645 }, { x: 242, y: 665 }, { x: 226, y: 658 }],
+      '4': [{ x: 527, y: 298 }, { x: 528, y: 322 }, { x: 552, y: 292 }, { x: 596, y: 301 }, { x: 528, y: 346 }, { x: 547, y: 352 }, { x: 533, y: 363 }, { x: 553, y: 363 }, { x: 505, y: 383 }, { x: 511, y: 394 }, { x: 527, y: 392 }, { x: 548, y: 410 }, { x: 565, y: 400 }, { x: 575, y: 405 }, { x: 574, y: 415 }, { x: 503, y: 425 }, { x: 500, y: 433 }, { x: 491, y: 437 }, { x: 526, y: 430 }, { x: 545, y: 428 }, { x: 552, y: 437 }, { x: 562, y: 430 }, { x: 571, y: 432 }, { x: 577, y: 440 }, { x: 567, y: 442 }, { x: 410, y: 440 }, { x: 433, y: 447 }, { x: 447, y: 445 }, { x: 455, y: 455 }, { x: 575, y: 483 }, { x: 590, y: 470 }, { x: 610, y: 455 }, { x: 612, y: 462 }, { x: 713, y: 431 }, { x: 722, y: 426 }, { x: 704, y: 467 }, { x: 225, y: 642 }, { x: 238, y: 662 }, { x: 222, y: 670 }, { x: 925, y: 190 }],
     },
     polygons: [],
   },
@@ -1574,6 +1582,7 @@ const state = {
   brush: { mode: 0, size: 12, painting: false },
   recording: null,
   photos: [], photoIndex: -1, photoHover: -1,
+  photoOffset: { dxM: CFG.photos?.offsetM?.dx ?? 0, dyM: CFG.photos?.offsetM?.dy ?? 0 },
 };
 
 // ---------- 現地写真（GPS 付き） ----------
@@ -1586,9 +1595,9 @@ function mercToImage(lat, lon) {
   return { x: x - g.originX, y: y - g.originY };
 }
 async function loadPhotos() {
-  if (window.SIP_PHOTOS) { state.photos = preparePhotos(window.SIP_PHOTOS); return; }
+  if (window.SIP_PHOTOS) { state.photosRaw = window.SIP_PHOTOS; state.photos = preparePhotos(window.SIP_PHOTOS); return; }
   if (!CFG.photos?.list || !CFG.georef) return;
-  try { const res = await fetch(CFG.photos.list); if (!res.ok) throw new Error(res.status); state.photos = preparePhotos(await res.json()); }
+  try { const res = await fetch(CFG.photos.list); if (!res.ok) throw new Error(res.status); state.photosRaw = await res.json(); state.photos = preparePhotos(state.photosRaw); }
   catch (e) { console.warn('現地写真の一覧を読み込めません', e); }
 }
 function preparePhotos(data) {
@@ -1596,7 +1605,8 @@ function preparePhotos(data) {
   return (data.photos || []).map((p, i) => {
     const q = mercToImage(p.lat, p.lon);
     const base = p.file.replace(/\.[^.]+$/, '');
-    return { ...p, i, x: q?.x, y: q?.y, thumb: p.thumbData || `${dir}/thumbs/${base}.jpg`, mid: p.midData || p.thumbData || `${dir}/mid/${base}.jpg`, full: `${dir}/${p.file}` };
+    const ox = (state.photoOffset.dxM || 0) / state.mPerPx, oy = (state.photoOffset.dyM || 0) / state.mPerPx;
+    return { ...p, i, x: q == null ? undefined : q.x + ox, y: q == null ? undefined : q.y + oy, thumb: p.thumbData || `${dir}/thumbs/${base}.jpg`, mid: p.midData || p.thumbData || `${dir}/mid/${base}.jpg`, full: `${dir}/${p.file}` };
   }).filter(p => Number.isFinite(p.x));
 }
 function drawPhotos(ctx) {
@@ -1673,7 +1683,17 @@ function openLightbox(k) {
   lb.hidden = false;
 }
 function closeLightbox() { $('lightbox').hidden = true; $('lightboxImg').src = ''; }
+function applyPhotoOffset(dx, dy, reset) {
+  if (reset) state.photoOffset = { dxM: 0, dyM: 0 }; else { state.photoOffset.dxM += dx; state.photoOffset.dyM += dy; }
+  const raw = state.photosRaw; if (raw) state.photos = preparePhotos(raw);
+  $('photoOffsetVal').textContent = `${state.photoOffset.dxM >= 0 ? '+' : ''}${state.photoOffset.dxM}, ${state.photoOffset.dyM >= 0 ? '+' : ''}${state.photoOffset.dyM} m`;
+  save(); requestRender();
+}
 function setupPhotos() {
+  $('phoW').addEventListener('click', () => applyPhotoOffset(-5, 0)); $('phoE').addEventListener('click', () => applyPhotoOffset(5, 0));
+  $('phoN').addEventListener('click', () => applyPhotoOffset(0, -5)); $('phoS').addEventListener('click', () => applyPhotoOffset(0, 5));
+  $('phoReset').addEventListener('click', () => applyPhotoOffset(0, 0, true));
+  applyPhotoOffset(0, 0);
   $('photoImgWrap').addEventListener('click', () => { if (state.photoIndex >= 0) openLightbox(state.photoIndex); });
   $('lightboxClose').addEventListener('click', closeLightbox);
   $('lightbox').addEventListener('click', (e) => { if (e.target === $('lightbox') || e.target === $('lightboxImg')) closeLightbox(); });
@@ -1684,7 +1704,7 @@ function setupPhotos() {
   $('photoClose').addEventListener('click', () => showPhoto(-1));
   $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
   $('photoNext').addEventListener('click', () => showPhoto((state.photoIndex + 1) % state.photos.length));
-  if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; }
+  if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; $('photoOffsetRow').hidden = true; }
   syncLegend();
 }
 
@@ -1729,7 +1749,7 @@ function serialize() {
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
     display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, adjacencyM: state.buffer.adjacencyM, aoi: state.aoiPoints }, sim: state.sim,
-    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement, exclusion: state.exclusion,
+    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement, exclusion: state.exclusion, photoOffset: state.photoOffset,
   };
 }
 let saveTimer = null;
@@ -1751,6 +1771,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.photoOffset) state.photoOffset = { dxM: +saved.photoOffset.dxM || 0, dyM: +saved.photoOffset.dyM || 0 };
   if (saved.exclusion) state.exclusion = { polygons: (saved.exclusion.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.settlement) state.settlement = normalizeSettlement({ ...state.settlement, ...saved.settlement, housesByScene: saved.settlement.housesByScene || state.settlement.housesByScene });
   if (saved.scenes) {
