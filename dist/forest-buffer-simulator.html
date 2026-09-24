@@ -1612,13 +1612,13 @@ function preparePhotos(data) {
 function drawPhotos(ctx) {
   if (state.display.showPhotos === false || !state.photos.length) return;
   ctx.save();
-  // 脈動する波紋（周期 1.8 秒、点ごとに位相をずらす）
-  const t = performance.now() / 1800;
+  // 穏やかな脈動（周期 3 秒、全点同じ位相でゆっくり広がる薄い輪）
+  const t = performance.now() / 3000;
   state.photos.forEach((p, k) => {
     const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 9 : 6;
-    const ph = (t + k * 0.13) % 1;
-    ctx.beginPath(); ctx.arc(q.x, q.y, r + 2 + ph * 12, 0, Math.PI * 2);
-    ctx.strokeStyle = sel ? `rgba(255,212,0,${(1 - ph) * 0.9})` : `rgba(40,120,255,${(1 - ph) * 0.8})`; ctx.lineWidth = 2; ctx.stroke();
+    const ph = t % 1; const ease = ph < 0.5 ? ph * 2 : 2 - ph * 2; // 0→1→0 の緩やかな往復
+    ctx.beginPath(); ctx.arc(q.x, q.y, r + 3 + ease * 4, 0, Math.PI * 2);
+    ctx.strokeStyle = sel ? `rgba(255,212,0,${0.15 + (1 - ease) * 0.35})` : `rgba(40,120,255,${0.12 + (1 - ease) * 0.28})`; ctx.lineWidth = 1.5; ctx.stroke();
     if (p.dir != null && (sel || hov)) { // 撮影方向の矢印（カーソルを合わせた点と選択中の点だけ）
       const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
       const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
