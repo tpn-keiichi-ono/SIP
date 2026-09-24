@@ -43,6 +43,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-house::before { background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M1 7 L7 1.4 L13 7 L11 7 L11 13 L3 13 L3 7 Z' fill='%23fff' stroke='%23333' stroke-width='1.2'/><rect x='6' y='9' width='2' height='4' fill='%23333'/></svg>") center/contain no-repeat; border-radius: 0 !important; width: 13px !important; height: 13px !important; }
 #legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #fff; width: 10px !important; height: 10px !important; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
+#zoomCtl { position: absolute; left: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 3; }
+#zoomCtl button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; border-radius: 6px; background: rgba(255,255,255,.92); border: 1px solid #999; color: #222; }
+#zoomCtl button:hover { background: #fff; }
+@media (max-width: 720px) { #zoomCtl button { width: 42px; height: 42px; } #zoomCtl { bottom: 48px; } }
 #photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 12px; }
 #photoPopup[hidden] { display: none; }
 #photoPopup img { width: 100%; display: block; border-radius: 4px; }
@@ -147,6 +151,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
       <div id="legend">
         <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">過去に緩衝帯だった場所（推定）</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
       </div>
+      <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="zoomFit" title="全体表示">⤢</button></div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
         <a id="photoLink" target="_blank" rel="noopener"><img id="photoImg" alt="現地写真"></a>
@@ -2082,6 +2087,10 @@ function setupDisplayPanel() {
   bindCheck('fixLatest', () => d.fixLatest, (v) => { d.fixLatest = v; save(); requestRender(); });
   bindCheck('showOverlay', () => d.showOverlay !== false, (v) => { d.showOverlay = v; requestRender(); });
   $('btnFit').addEventListener('click', fitView);
+  $('zoomFit').addEventListener('click', fitView);
+  const zoomStep = (f) => { const cw = viewer.clientWidth, ch = viewer.clientHeight; zoomAt(cw / 2, ch / 2, f); };
+  $('zoomIn').addEventListener('click', () => zoomStep(1.5));
+  $('zoomOut').addEventListener('click', () => zoomStep(1 / 1.5));
   syncLegend();
 }
 function syncLegend() {

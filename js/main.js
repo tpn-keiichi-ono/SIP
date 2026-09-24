@@ -580,6 +580,10 @@ function setupDisplayPanel() {
   bindCheck('fixLatest', () => d.fixLatest, (v) => { d.fixLatest = v; save(); requestRender(); });
   bindCheck('showOverlay', () => d.showOverlay !== false, (v) => { d.showOverlay = v; requestRender(); });
   $('btnFit').addEventListener('click', fitView);
+  $('zoomFit').addEventListener('click', fitView);
+  const zoomStep = (f) => { const cw = viewer.clientWidth, ch = viewer.clientHeight; zoomAt(cw / 2, ch / 2, f); };
+  $('zoomIn').addEventListener('click', () => zoomStep(1.5));
+  $('zoomOut').addEventListener('click', () => zoomStep(1 / 1.5));
   syncLegend();
 }
 function syncLegend() {
