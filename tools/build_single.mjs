@@ -45,9 +45,9 @@ if (m && fs.existsSync(path.join(root, m[1]))) {
   photosScript = `<script>window.SIP_PHOTOS = ${JSON.stringify(pj)};</script>\n`;
 }
 let html = read('index.html');
-html = html.replace('<link rel="stylesheet" href="css/style.css">', `<style>\n${read('css/style.css')}\n</style>`);
-html = html.replace('<script src="data/config.js"></script>', `<script>\n${config}\n</script>\n${photosScript}`);
-html = html.replace('<script type="module" src="js/main.js"></script>', `<script>\n(() => {${bundle}\n})();\n</script>`);
+html = html.replace(/<link rel="stylesheet" href="css\/style.css[^"]*">/, `<style>\n${read('css/style.css')}\n</style>`);
+html = html.replace(/<script src="data\/config.js[^"]*"><\/script>/, `<script>\n${config}\n</script>\n${photosScript}`);
+html = html.replace(/<script type="module" src="js\/main.js[^"]*"><\/script>/, `<script>\n(() => {${bundle}\n})();\n</script>`);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 const out = path.join(root, 'dist', 'forest-buffer-simulator.html');
 fs.writeFileSync(out, html);

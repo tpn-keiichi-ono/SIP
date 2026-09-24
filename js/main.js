@@ -518,8 +518,7 @@ function updateTimelineUI() {
   updateSliderThumb();
   const ticks = $('ticks'); ticks.innerHTML = '';
   // 目盛りとつまみは同じ座標系（左右の余白 = つまみ半径）で配置する
-  const place = null;
-  const setPos = (el, yr) => { el.style.setProperty('--pos', String((yr - tl.xMin) / (tl.xMax - tl.xMin))); };
+  const setPos = (el, yr) => { el.dataset.year = String(yr); };
   let prevYear = -Infinity; const span = tl.xMax - tl.xMin;
   for (const s of tl.scenes) {
     const el = document.createElement('div'); el.className = 'tick'; setPos(el, s.year);
@@ -535,13 +534,21 @@ function updateTimelineUI() {
     el.addEventListener('click', () => setYear(Math.ceil(dy * 2) / 2)); ticks.appendChild(el);
   }
 }
+/** スライダーの余白（つまみ半径）を px で返す。 */
+function sliderHalf() { return parseFloat(getComputedStyle($('yearSlider')).getPropertyValue('--thumb-half')) || 9; }
+/** 年 → スライダー内の x 座標（px）。目盛りもつまみもこの関数だけで位置を決める。 */
+function yearToPx(yr) {
+  const tl = state.timeline; const sl = $('yearSlider'); const w = sl.clientWidth; const half = sliderHalf();
+  const f = Math.min(1, Math.max(0, (yr - tl.xMin) / (tl.xMax - tl.xMin)));
+  return half + f * (w - 2 * half);
+}
 function updateSliderThumb() {
   const tl = state.timeline; if (!tl) return;
-  const f = Math.min(1, Math.max(0, (state.year - tl.xMin) / (tl.xMax - tl.xMin)));
-  const sl = $('yearSlider'); sl.style.setProperty('--pos', String(f));
-  sl.querySelector('.thumb').style.left = `calc(var(--thumb-half) + ${f} * (100% - 2 * var(--thumb-half)))`;
-  sl.querySelector('.fill').style.width = `calc(${f} * (100% - 2 * var(--thumb-half)))`;
+  const sl = $('yearSlider'); const x = yearToPx(state.year);
+  sl.querySelector('.thumb').style.left = x + 'px';
+  sl.querySelector('.fill').style.width = Math.max(0, x - sliderHalf()) + 'px';
   sl.setAttribute('aria-valuemin', tl.xMin); sl.setAttribute('aria-valuemax', tl.xMax); sl.setAttribute('aria-valuenow', state.year);
+  for (const el of $('ticks').querySelectorAll('.tick')) el.style.left = yearToPx(Number(el.dataset.year)) + 'px';
 }
 function setupSlider() {
   const sl = $('yearSlider');
@@ -953,6 +960,7 @@ function setupViewer() {
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.exclDrawing) finishExcl(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
   });
+  new ResizeObserver(() => updateSliderThumb()).observe($('yearSlider'));
   let firstResize = true;
   new ResizeObserver(() => { if (firstResize) { firstResize = false; initialView(); } else fitView(); chart.draw(); }).observe($('viewerWrap'));
 }

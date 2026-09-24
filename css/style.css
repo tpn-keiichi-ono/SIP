@@ -56,14 +56,13 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #timeline { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px 4px; }
 #timeline .row { display: flex; align-items: center; gap: 10px; }
 #timeline .sliderWrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-#yearSlider { position: relative; height: 28px; cursor: pointer; touch-action: none; padding: 0 var(--thumb-half); }
+#yearSlider { position: relative; height: 28px; cursor: pointer; touch-action: none; }
 #yearSlider { --thumb-half: 9px; }
 #yearSlider .track { position: absolute; left: var(--thumb-half); right: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: #e2e1dc; }
 #yearSlider .fill { position: absolute; left: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: var(--accent); width: 0; }
-#yearSlider .thumb { position: absolute; top: 5px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+#yearSlider .thumb { position: absolute; top: 5px; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 #yearSlider:focus { outline: none; } #yearSlider:focus .thumb { outline: 2px solid var(--focus); }
-#ticks { position: relative; height: 26px; margin: 2px 0 0; padding: 0 var(--thumb-half); --thumb-half: 9px; }
-#ticks .tick { left: calc(var(--thumb-half) + var(--pos) * (100% - 2 * var(--thumb-half))); }
+#ticks { position: relative; height: 26px; margin: 2px 0 0; }
 #ticks .tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; color: var(--text-2); text-align: center; cursor: pointer; white-space: nowrap; }
 #ticks .tick::before { content: ""; display: block; width: 2px; height: 7px; background: var(--accent); margin: 0 auto 1px; }
 #ticks .tick.alt { padding-top: 12px; }
