@@ -39,6 +39,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-set::before { background: rgba(250,250,250,.8); }
 #legend .l-for::before { background: rgba(40,150,70,.7); }
 #legend .l-built::before { background: rgba(235,235,235,.8); }
+#legend .l-house::before { background: #fff; border-radius: 50% !important; border: 1px solid #333; width: 10px !important; height: 10px !important; }
+#legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #fff; width: 10px !important; height: 10px !important; }
+#legend .l-photo::after { content: "→"; margin-left: 2px; color: #fff; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
 #photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 12px; }
 #photoPopup[hidden] { display: none; }
@@ -142,7 +145,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居の点</span><span class="l-photo" id="legPhoto">現地写真（矢印＝撮影方向）</span>
       </div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -1580,11 +1583,12 @@ function showPhoto(k) {
   pop.hidden = false; requestRender();
 }
 function setupPhotos() {
-  bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); requestRender(); });
+  bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); syncLegend(); requestRender(); });
   $('photoClose').addEventListener('click', () => showPhoto(-1));
   $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
   $('photoNext').addEventListener('click', () => showPhoto((state.photoIndex + 1) % state.photos.length));
   if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; }
+  syncLegend();
 }
 
 // ---------- 教師サンプル ----------
@@ -1998,7 +2002,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {

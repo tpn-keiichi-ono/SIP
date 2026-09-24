@@ -104,11 +104,12 @@ function showPhoto(k) {
   pop.hidden = false; requestRender();
 }
 function setupPhotos() {
-  bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); requestRender(); });
+  bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); syncLegend(); requestRender(); });
   $('photoClose').addEventListener('click', () => showPhoto(-1));
   $('photoPrev').addEventListener('click', () => showPhoto((state.photoIndex - 1 + state.photos.length) % state.photos.length));
   $('photoNext').addEventListener('click', () => showPhoto((state.photoIndex + 1) % state.photos.length));
   if (!state.photos.length) { $('showPhotos').closest('label').hidden = true; }
+  syncLegend();
 }
 
 // ---------- 教師サンプル ----------
@@ -522,7 +523,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
