@@ -52,6 +52,7 @@ async function loadPhotos() {
 }
 function preparePhotos(data) {
   const dir = data.dir || 'data/photos/mauracho';
+  state.photoTags = data.tags || {};
   return (data.photos || []).map((p, i) => {
     const q = mercToImage(p.lat, p.lon);
     const base = p.file.replace(/\.[^.]+$/, '');
@@ -68,7 +69,8 @@ function drawPhotos(ctx) {
     const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 9 : 6;
     const ph = t % 1; const ease = ph < 0.5 ? ph * 2 : 2 - ph * 2; // 0→1→0 の緩やかな往復
     ctx.beginPath(); ctx.arc(q.x, q.y, r + 3 + ease * 4, 0, Math.PI * 2);
-    ctx.strokeStyle = sel ? `rgba(255,212,0,${0.15 + (1 - ease) * 0.35})` : `rgba(40,120,255,${0.12 + (1 - ease) * 0.28})`; ctx.lineWidth = 1.5; ctx.stroke();
+    const tagCol0 = p.tag && state.photoTags[p.tag]?.color;
+    ctx.strokeStyle = sel ? `rgba(255,212,0,${0.15 + (1 - ease) * 0.35})` : (tagCol0 ? hexA(tagCol0, 0.12 + (1 - ease) * 0.3) : `rgba(40,120,255,${0.12 + (1 - ease) * 0.28})`); ctx.lineWidth = 1.5; ctx.stroke();
     if (p.dir != null && (sel || hov)) { // 撮影方向の矢印（カーソルを合わせた点と選択中の点だけ）
       const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
       const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
@@ -79,7 +81,8 @@ function drawPhotos(ctx) {
       ctx.lineTo(tx + Math.cos(a + 2.5) * head, ty + Math.sin(a + 2.5) * head);
       ctx.lineTo(tx + Math.cos(a - 2.5) * head, ty + Math.sin(a - 2.5) * head); ctx.closePath(); ctx.fill();
     }
-    drawCameraIcon(ctx, q.x, q.y, r, sel ? '#ffd400' : 'rgba(40,120,255,0.95)');
+    const tagCol = p.tag && state.photoTags[p.tag]?.color;
+    drawCameraIcon(ctx, q.x, q.y, r, sel ? '#ffd400' : (tagCol || 'rgba(40,120,255,0.95)'));
   });
   ctx.restore();
 }
@@ -108,7 +111,8 @@ function showPhoto(k) {
   $('photoImg').src = p.mid;
   if (!$('lightbox').hidden) openLightbox(k);
   const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
-  $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
+  const tagLine = p.tag && state.photoTags[p.tag] ? `<br><span style="color:${state.photoTags[p.tag].color};font-weight:700">■ ${esc(state.photoTags[p.tag].label)}</span>` : '';
+  $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}${tagLine}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   pop.hidden = false; requestRender();
 }
 /** カーソルを合わせた写真のサムネイルをその場に表示する。 */
@@ -118,7 +122,8 @@ function showPhotoHover(k, sx, sy) {
   const p = state.photos[k];
   const img = $('photoHoverImg'); if (img.dataset.k !== String(k)) { img.src = p.thumb; img.dataset.k = String(k); }
   const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
-  $('photoHoverCap').innerHTML = `${p.alt != null ? `標高 ${p.alt} m` : ''}${p.dir != null ? `${p.alt != null ? ' ／ ' : ''}撮影方向 ${dirName}（${p.dir}°）` : ''}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
+  const tagH = p.tag && state.photoTags[p.tag] ? `<span style="color:${state.photoTags[p.tag].color};font-weight:700">■ ${esc(state.photoTags[p.tag].label)}</span><br>` : '';
+  $('photoHoverCap').innerHTML = `${tagH}${p.alt != null ? `標高 ${p.alt} m` : ''}${p.dir != null ? `${p.alt != null ? ' ／ ' : ''}撮影方向 ${dirName}（${p.dir}°）` : ''}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   el.hidden = false;
   const W = viewer.clientWidth, H = viewer.clientHeight, w = el.offsetWidth || 210, h = el.offsetHeight || 190;
   let x = sx + 16, y = sy - h / 2;
@@ -461,6 +466,7 @@ function waterWithCoast(scene) {
   }
   return coastCache.mask;
 }
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
 /** カメラの形のアイコン（本体＋レンズ＋ファインダー）。r は目安の半径（画素）。 */
 function drawCameraIcon(ctx, x, y, r, fill) {
   const w = r * 1.9, h = r * 1.4;           // 本体
@@ -717,7 +723,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legExcl').hidden = d.showExcl === false || !state.exclusion.polygons.length; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legExcl').hidden = d.showExcl === false || !state.exclusion.polygons.length; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legPhotoBuf').hidden = d.showPhotos === false || !state.photos.some(p => p.tag === 'buffer'); $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
