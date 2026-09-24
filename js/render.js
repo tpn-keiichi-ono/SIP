@@ -6,8 +6,8 @@ function pack(r, g, b, a) { return ((a & 255) << 24) | ((b & 255) << 16) | ((g &
 export const DEFAULT_STYLE = {
   opacity: 0.45,
   bufferColor: [230, 40, 40],
-  lostColor: [120, 10, 40],
-  lostOpacity: 0.45,
+  lostColor: [150, 70, 230],
+  lostOpacity: 0.5,
   forestColor: [40, 150, 70],
   forestOpacity: 0.25,
   builtColor: [235, 235, 235],

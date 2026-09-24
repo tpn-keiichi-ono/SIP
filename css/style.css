@@ -25,7 +25,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend { position: absolute; right: 12px; bottom: 10px; background: rgba(0,0,0,.55); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 11px; display: flex; gap: 12px; pointer-events: none; }
 #legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
-#legend .l-lost::before { background: rgba(120,10,40,.75); }
+#legend .l-lost::before { background: rgba(150,70,230,.8); }
 #legend .l-sparse::before { background: rgba(255,150,40,.8); }
 #legend .l-excl::before { background: rgba(120,200,120,.7); }
 #legend .l-field::before { background: rgba(255,220,90,.8); }
