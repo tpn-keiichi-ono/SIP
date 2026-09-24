@@ -2219,10 +2219,10 @@ function tick(ts) {
   let y = state.year + dt * speed;
   const tl = state.timeline;
   if (y >= tl.xMax) {
-    if (state.recording) { y = tl.xMax; state.year = y; render(); stopRecording(); return; }
-    if ($('loop').checked) y = tl.xMin; else { y = tl.xMax; state.year = y; render(); togglePlay(false); return; }
+    if (state.recording) { y = tl.xMax; state.year = y; sceneDirty = true; render(); stopRecording(); return; }
+    if ($('loop').checked) y = tl.xMin; else { y = tl.xMax; state.year = y; sceneDirty = true; render(); togglePlay(false); return; }
   }
-  state.year = y; render();
+  state.year = y; sceneDirty = true; render();
   requestAnimationFrame(tick);
 }
 function togglePlay(on) {
@@ -2699,7 +2699,7 @@ function startRecording() {
   rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
   rec.onstop = () => { download(new Blob(chunks, { type: 'video/webm' }), 'forest-buffer-simulation.webm'); state.recording = null; $('btnVideo').disabled = false; $('exportNote').textContent = '動画を保存しました。'; };
   state.recording = rec; $('btnVideo').disabled = true; $('exportNote').textContent = '録画中… 再生が終わると自動的に保存されます。';
-  $('loop').checked = false; state.year = state.timeline.xMin; render();
+  $('loop').checked = false; state.year = state.timeline.xMin; sceneDirty = true; render();
   rec.start(200);
   togglePlay(true);
 }
@@ -2754,7 +2754,7 @@ async function init() {
 // 自動化・テスト用の小さな API
 window.SIP = {
   state,
-  setYear: (y) => { setYear(y); render(); },
+  setYear: (y) => { setYear(y); sceneDirty = true; render(); },
   getFrame: () => lastFrame && { year: lastFrame.t, mode: lastFrame.mode, areaHa: lastFrame.areaHa, lostHa: lastFrame.lostHa },
   photos: () => state.photos.map(p => ({ file: p.file, x: Math.round(p.x), y: Math.round(p.y), cls: classAt(p.x, p.y) })),
   showPhoto,
