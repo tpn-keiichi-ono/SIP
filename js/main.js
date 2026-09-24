@@ -301,17 +301,23 @@ function computeFrame(t) {
   const n = state.W * state.H;
   if (!frameBuf.cur) { frameBuf.cur = new Uint8Array(n); frameBuf.lost = new Uint8Array(n); frameBuf.forest = new Uint8Array(n); }
   let base, next, frac, mode, compare;
+  let compareScene = null;
   if (t > tl.start.year + 1e-9) {
     tl.projection.maskAt(t, frameBuf.cur);
-    base = tl.start; next = null; frac = 0; mode = 'pred'; compare = tl.start.buffer;
+    base = tl.start; next = null; frac = 0; mode = 'pred'; compareScene = tl.start;
   } else {
     const r = interpolate(tl.scenes, tl.intervals, t, frameBuf.cur);
     base = tl.scenes[r.base]; next = tl.scenes[r.next]; frac = r.frac;
     const exact = tl.scenes.find(s => Math.abs(s.year - t) < 1e-6);
     mode = exact ? 'obs' : 'interp';
-    if (exact) { base = exact; const k = tl.scenes.indexOf(exact); compare = k > 0 ? tl.scenes[k - 1].buffer : null; frac = 0; next = null; }
-    else compare = base.buffer;
+    if (exact) { base = exact; const k = tl.scenes.indexOf(exact); compareScene = k > 0 ? tl.scenes[k - 1] : null; frac = 0; next = null; }
+    else compareScene = base;
   }
+  // 消失の基準: 直前の観測時期（prev）／最初の観測時期に固定（first）／指定した観測時期（id）
+  const lb = state.display.lostBase || 'first';
+  if (lb === 'first') compareScene = tl.scenes[0].year < t - 1e-9 ? tl.scenes[0] : null;
+  else if (lb !== 'prev') { const s = tl.scenes.find(x => x.id === lb); compareScene = s && s.year < t - 1e-9 ? s : null; }
+  compare = compareScene ? compareScene.buffer : null;
   const cur = frameBuf.cur, lost = frameBuf.lost, forest = frameBuf.forest;
   const bf = base.cls.forest;
   let lostCount = 0, curCount = 0;
@@ -321,7 +327,7 @@ function computeFrame(t) {
     if (cur[i]) curCount++;
     forest[i] = bf[i] || l ? 1 : 0;
   }
-  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear: compare ? (mode === 'pred' ? tl.start.year : (mode === 'obs' ? tl.scenes[tl.scenes.indexOf(base) - 1]?.year : base.year)) : null };
+  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear: compareScene ? compareScene.year : null };
 }
 
 // ---------- 描画 ----------
@@ -452,7 +458,7 @@ function updateHud(frame) {
   modeEl.textContent = frame.mode === 'obs' ? `観測: ${frame.base.label || frame.base.id}` : frame.mode === 'interp' ? `補間（${frame.base.year} → ${frame.next?.year} 年）` : `予測（${tl.start.year} 年を起点・${modelName(state.sim.model)}）`;
   const pct = tl.initialArea > 0 ? frame.areaHa / tl.initialArea * 100 : 0;
   let s = `森林緩衝帯 ${frame.areaHa.toFixed(1)} ha（${tl.scenes[0].year} 年比 ${pct.toFixed(0)}%）`;
-  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareYear} 年以降の消失 ${frame.lostHa.toFixed(1)} ha`;
+  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareYear} 年以降の消失 ${frame.lostHa.toFixed(1)} ha（紫）`;
   if (tl.projection.disappearYear != null && frame.mode === 'pred') s += `<br>予測消失年 ${tl.projection.disappearYear.toFixed(0)} 年`;
   $('hudStats').innerHTML = s;
 }
@@ -535,6 +541,10 @@ function bindCheck(id, get, set) { const el = $(id); el.checked = !!get(); el.ad
 function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
+  const lb = $('lostBase');
+  const fillLostBase = () => { const cur = d.lostBase || 'first'; lb.innerHTML = '<option value="prev">直前の観測時期</option><option value="first">最初の観測時期（累積）</option>' + sortedScenes().map(s => `<option value="${esc(s.id)}">${s.year} 年に固定</option>`).join(''); lb.value = [...lb.options].some(o => o.value === cur) ? cur : 'first'; };
+  fillLostBase(); state.refreshLostBase = fillLostBase;
+  lb.addEventListener('change', () => { d.lostBase = lb.value; save(); requestRender(); });
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
   bindCheck('showExcl', () => d.showExcl !== false, (v) => { d.showExcl = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
@@ -576,7 +586,7 @@ function renderSceneTable() {
   $('yearNote').innerHTML = est.length ? `<span class="warn">※ 「?」付きの撮影年は画像の見た目からの推定値です（${est.map(s => s.id).join(', ')}）。実際の撮影年に修正してください。</span>` : '';
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function afterScenesChanged() { rebuildStartOptions(); rebuildTimeline(); renderSceneTable(); requestRender(); }
+function afterScenesChanged() { rebuildStartOptions(); if (state.refreshLostBase) state.refreshLostBase(); rebuildTimeline(); renderSceneTable(); requestRender(); }
 
 function selectedScene() { return state.scenes.find(s => s.id === state.selectedId) || state.scenes[0]; }
 let paramRefreshers = [];

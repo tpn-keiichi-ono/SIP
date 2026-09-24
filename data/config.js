@@ -40,7 +40,7 @@ window.SIP_CONFIG = {
       '3': { sparse: [{ x: 740, y: 230, r: 10 }, { x: 660, y: 440, r: 8 }], forest: [{ x: 560, y: 502, r: 6 }, { x: 600, y: 512, r: 6 }, { x: 1000, y: 350, r: 12 }, { x: 1120, y: 300, r: 12 }, { x: 1000, y: 500, r: 15 }, { x: 720, y: 600, r: 15 }, { x: 400, y: 620, r: 15 }, { x: 300, y: 560, r: 12 }, { x: 450, y: 650, r: 15 }, { x: 560, y: 700, r: 12 }, { x: 850, y: 120, r: 15 }, { x: 770, y: 180, r: 10 }, { x: 1120, y: 150, r: 12 }, { x: 1130, y: 400, r: 10 }, { x: 850, y: 470, r: 12 }, { x: 620, y: 480, r: 8 }] },
     },
   },
-  display: { opacity: 0.45, showLost: true, showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
+  display: { opacity: 0.45, showLost: true, lostBase: 'first', showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 生活空間（住宅地・田畑・人工物）の周囲 edgeBandM (m) の帯のうち疎林・草地の部分。解析範囲 = 画像全体（aoi: []）
   // forestNearM: この距離以内に密な森林がある部分だけ（森に面した側だけ）、coastAwayM: 海岸からこの距離以内は緩衝帯にしない
   // minForestHa: 緩衝帯が接すべき「まとまった森林」の最小面積 (ha)。田畑の間の木立は森林扱いしない
