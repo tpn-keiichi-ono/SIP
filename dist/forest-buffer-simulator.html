@@ -43,6 +43,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-house::before { background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M1 7 L7 1.4 L13 7 L11 7 L11 13 L3 13 L3 7 Z' fill='%23fff' stroke='%23333' stroke-width='1.2'/><rect x='6' y='9' width='2' height='4' fill='%23333'/></svg>") center/contain no-repeat; border-radius: 0 !important; width: 13px !important; height: 13px !important; }
 #legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #333; width: 10px !important; height: 10px !important; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
+#photoHover { position: absolute; z-index: 5; pointer-events: none; background: rgba(20,20,20,.92); border-radius: 6px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+#photoHover[hidden] { display: none; }
+#photoHover img { display: block; width: 200px; max-height: 200px; object-fit: cover; border-radius: 4px; }
+#photoHover #photoHoverCap { color: #fff; font-size: 11px; margin-top: 3px; text-align: center; }
 #zoomCtl { position: absolute; left: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 3; }
 #zoomCtl button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; border-radius: 6px; background: rgba(255,255,255,.92); border: 1px solid #999; color: #222; }
 #zoomCtl button:hover { background: #fff; }
@@ -148,6 +152,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="mode" id="hudMode">観測</div>
         <div class="stats" id="hudStats"></div>
       </div>
+      <div id="photoHover" hidden><img id="photoHoverImg" alt=""><div id="photoHoverCap"></div></div>
       <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="zoomFit" title="全体表示">⤢</button></div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -1605,11 +1610,24 @@ function classAt(x, y) {
 function showPhoto(k) {
   const pop = $('photoPopup');
   if (k < 0 || k >= state.photos.length) { state.photoIndex = -1; pop.hidden = true; requestRender(); return; }
-  state.photoIndex = k; const p = state.photos[k];
+  state.photoIndex = k; const p = state.photos[k]; showPhotoHover(-1);
   $('photoImg').src = p.mid; $('photoLink').href = p.full;
   const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
   $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   pop.hidden = false; requestRender();
+}
+/** カーソルを合わせた写真のサムネイルをその場に表示する。 */
+function showPhotoHover(k, sx, sy) {
+  const el = $('photoHover');
+  if (k < 0 || k === state.photoIndex) { el.hidden = true; return; }
+  const p = state.photos[k];
+  const img = $('photoHoverImg'); if (img.dataset.k !== String(k)) { img.src = p.thumb; img.dataset.k = String(k); }
+  $('photoHoverCap').textContent = `${p.time ? p.time.slice(11, 16) : ''}${p.dir != null ? ' ／ ' + ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8] + '向き' : ''}`;
+  el.hidden = false;
+  const W = viewer.clientWidth, H = viewer.clientHeight, w = el.offsetWidth || 210, h = el.offsetHeight || 190;
+  let x = sx + 16, y = sy - h / 2;
+  if (x + w > W - 8) x = sx - w - 16; if (y < 8) y = 8; if (y + h > H - 8) y = H - h - 8;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
 }
 function setupPhotos() {
   bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); syncLegend(); requestRender(); });
@@ -2349,6 +2367,7 @@ function setupViewer() {
     if (e.pointerType === 'mouse' && !dragging && !state.brush.painting) {
       const rr = rectOf(); const k = photoAt(e.clientX - rr.left, e.clientY - rr.top);
       if (k !== state.photoHover) { state.photoHover = k; viewer.style.cursor = k >= 0 ? 'pointer' : ''; requestRender(); }
+      showPhotoHover(k, e.clientX - rr.left, e.clientY - rr.top);
     }
     if (pinch && pointers.size >= 2) {
       const [a, b] = [...pointers.values()];
@@ -2373,7 +2392,7 @@ function setupViewer() {
     dragging = false; viewer.style.cursor = '';
   };
   viewer.addEventListener('pointerup', up); viewer.addEventListener('pointercancel', up);
-  viewer.addEventListener('pointerleave', () => { if (state.photoHover >= 0) { state.photoHover = -1; requestRender(); } });
+  viewer.addEventListener('pointerleave', () => { if (state.photoHover >= 0) { state.photoHover = -1; requestRender(); } showPhotoHover(-1); });
   viewer.addEventListener('click', (e) => {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);

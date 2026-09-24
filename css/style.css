@@ -36,6 +36,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-house::before { background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M1 7 L7 1.4 L13 7 L11 7 L11 13 L3 13 L3 7 Z' fill='%23fff' stroke='%23333' stroke-width='1.2'/><rect x='6' y='9' width='2' height='4' fill='%23333'/></svg>") center/contain no-repeat; border-radius: 0 !important; width: 13px !important; height: 13px !important; }
 #legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #333; width: 10px !important; height: 10px !important; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
+#photoHover { position: absolute; z-index: 5; pointer-events: none; background: rgba(20,20,20,.92); border-radius: 6px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+#photoHover[hidden] { display: none; }
+#photoHover img { display: block; width: 200px; max-height: 200px; object-fit: cover; border-radius: 4px; }
+#photoHover #photoHoverCap { color: #fff; font-size: 11px; margin-top: 3px; text-align: center; }
 #zoomCtl { position: absolute; left: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 3; }
 #zoomCtl button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; border-radius: 6px; background: rgba(255,255,255,.92); border: 1px solid #999; color: #222; }
 #zoomCtl button:hover { background: #fff; }

@@ -98,11 +98,24 @@ function classAt(x, y) {
 function showPhoto(k) {
   const pop = $('photoPopup');
   if (k < 0 || k >= state.photos.length) { state.photoIndex = -1; pop.hidden = true; requestRender(); return; }
-  state.photoIndex = k; const p = state.photos[k];
+  state.photoIndex = k; const p = state.photos[k]; showPhotoHover(-1);
   $('photoImg').src = p.mid; $('photoLink').href = p.full;
   const dirName = p.dir == null ? '' : ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8];
   $('photoMeta').innerHTML = `<b>${k + 1} / ${state.photos.length}</b> ${esc(p.file)}<br>${esc(p.time || '')}${p.alt != null ? ` ／ 標高 ${p.alt} m` : ''}${p.dir != null ? ` ／ 撮影方向 ${dirName}（${p.dir}°）` : ''}<br>北緯 ${p.lat.toFixed(5)} 東経 ${p.lon.toFixed(5)}<br>この地点の判定（${lastFrame?.base?.year ?? ''} 年）: <b>${esc(classAt(p.x, p.y))}</b>`;
   pop.hidden = false; requestRender();
+}
+/** カーソルを合わせた写真のサムネイルをその場に表示する。 */
+function showPhotoHover(k, sx, sy) {
+  const el = $('photoHover');
+  if (k < 0 || k === state.photoIndex) { el.hidden = true; return; }
+  const p = state.photos[k];
+  const img = $('photoHoverImg'); if (img.dataset.k !== String(k)) { img.src = p.thumb; img.dataset.k = String(k); }
+  $('photoHoverCap').textContent = `${p.time ? p.time.slice(11, 16) : ''}${p.dir != null ? ' ／ ' + ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(p.dir / 45) % 8] + '向き' : ''}`;
+  el.hidden = false;
+  const W = viewer.clientWidth, H = viewer.clientHeight, w = el.offsetWidth || 210, h = el.offsetHeight || 190;
+  let x = sx + 16, y = sy - h / 2;
+  if (x + w > W - 8) x = sx - w - 16; if (y < 8) y = 8; if (y + h > H - 8) y = H - h - 8;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
 }
 function setupPhotos() {
   bindCheck('showPhotos', () => state.display.showPhotos !== false, (v) => { state.display.showPhotos = v; save(); if (!v) showPhoto(-1); syncLegend(); requestRender(); });
@@ -842,6 +855,7 @@ function setupViewer() {
     if (e.pointerType === 'mouse' && !dragging && !state.brush.painting) {
       const rr = rectOf(); const k = photoAt(e.clientX - rr.left, e.clientY - rr.top);
       if (k !== state.photoHover) { state.photoHover = k; viewer.style.cursor = k >= 0 ? 'pointer' : ''; requestRender(); }
+      showPhotoHover(k, e.clientX - rr.left, e.clientY - rr.top);
     }
     if (pinch && pointers.size >= 2) {
       const [a, b] = [...pointers.values()];
@@ -866,7 +880,7 @@ function setupViewer() {
     dragging = false; viewer.style.cursor = '';
   };
   viewer.addEventListener('pointerup', up); viewer.addEventListener('pointercancel', up);
-  viewer.addEventListener('pointerleave', () => { if (state.photoHover >= 0) { state.photoHover = -1; requestRender(); } });
+  viewer.addEventListener('pointerleave', () => { if (state.photoHover >= 0) { state.photoHover = -1; requestRender(); } showPhotoHover(-1); });
   viewer.addEventListener('click', (e) => {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
