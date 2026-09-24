@@ -147,6 +147,7 @@ function loadSaved() {
 function serialize() {
   return {
     version: 1,
+    settingsVersion: CFG.settingsVersion || 0,
     scale: CFG.scale,
     scenes: state.scenes.filter(s => s.file).map(s => ({
       id: s.id, file: s.file, year: s.year, label: s.label, estimated: !!s.estimated, params: s.params,
@@ -163,6 +164,13 @@ function save() {
 }
 function applySaved(saved) {
   if (!saved) return;
+  // 既定パラメータの版が変わっていたら、保存済みのパラメータ類は捨てて既定値を使う（利用者の描いた要素は残す）
+  if ((saved.settingsVersion || 0) !== (CFG.settingsVersion || 0)) {
+    delete saved.display; delete saved.buffer; delete saved.sim; delete saved.coastBandM;
+    if (saved.scenes) for (const ss of saved.scenes) { delete ss.params; }
+    if (saved.settlement) { delete saved.settlement.autoM; delete saved.settlement.houseRadiusM; }
+    state.settingsMigrated = true;
+  }
   if (saved.display) Object.assign(state.display, saved.display);
   if (saved.buffer) { state.buffer.edgeBandM = saved.buffer.edgeBandM ?? state.buffer.edgeBandM; state.buffer.forestNearM = saved.buffer.forestNearM ?? state.buffer.forestNearM; state.buffer.coastAwayM = saved.buffer.coastAwayM ?? state.buffer.coastAwayM; state.buffer.minForestHa = saved.buffer.minForestHa ?? state.buffer.minForestHa; state.buffer.adjacencyM = saved.buffer.adjacencyM ?? state.buffer.adjacencyM; state.aoiPoints = saved.buffer.aoi || []; }
   if (saved.sim) Object.assign(state.sim, saved.sim);
@@ -1031,6 +1039,7 @@ async function init() {
     rebuildTimeline(); renderSceneTable(); refreshParamPanel();
     fitView(); render();
     status.textContent = `${state.W}×${state.H} px · ${state.mPerPx.toFixed(2)} m/px · ${state.scenes.length} 時期`;
+    if (state.settingsMigrated) { save(); $('exportNote').textContent = '判定パラメータの既定値が更新されたため、保存されていた古いパラメータを既定値に置き換えました（サンプル・住居・多角形は引き継いでいます）。'; }
     clearTimeout(watchdog);
     $('loading').hidden = true;
   } catch (err) {
