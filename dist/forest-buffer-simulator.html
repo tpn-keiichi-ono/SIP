@@ -179,7 +179,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
-          <label>消失の基準: <select id="lostBase"><option value="prev">直前の観測時期</option><option value="first" selected>最初の観測時期（累積）</option></select></label>
+          <label>消失の基準: <select id="lostBase"><option value="all" selected>過去のすべての時期（和集合）</option><option value="prev">直前の観測時期</option><option value="first">最初の観測時期</option></select></label>
           <label><input type="checkbox" id="showSettlement" checked> 住宅地</label>
           <label><input type="checkbox" id="showExcl" checked> 棚田跡（除外範囲）</label>
           <label><input type="checkbox" id="showSparse"> 疎林・草地（全体）</label>
@@ -368,7 +368,7 @@ window.SIP_CONFIG = {
       '3': { sparse: [{ x: 740, y: 230, r: 10 }, { x: 660, y: 440, r: 8 }], forest: [{ x: 560, y: 502, r: 6 }, { x: 600, y: 512, r: 6 }, { x: 1000, y: 350, r: 12 }, { x: 1120, y: 300, r: 12 }, { x: 1000, y: 500, r: 15 }, { x: 720, y: 600, r: 15 }, { x: 400, y: 620, r: 15 }, { x: 300, y: 560, r: 12 }, { x: 450, y: 650, r: 15 }, { x: 560, y: 700, r: 12 }, { x: 850, y: 120, r: 15 }, { x: 770, y: 180, r: 10 }, { x: 1120, y: 150, r: 12 }, { x: 1130, y: 400, r: 10 }, { x: 850, y: 470, r: 12 }, { x: 620, y: 480, r: 8 }] },
     },
   },
-  display: { opacity: 0.45, showLost: true, lostBase: 'first', showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
+  display: { opacity: 0.45, showLost: true, lostBase: 'all', showForest: false, showBuilt: false, showWater: false, crossfade: true, fixLatest: false },
   // 緩衝帯 = 生活空間（住宅地・田畑・人工物）の周囲 edgeBandM (m) の帯のうち疎林・草地の部分。解析範囲 = 画像全体（aoi: []）
   // forestNearM: この距離以内に密な森林がある部分だけ（森に面した側だけ）、coastAwayM: 海岸からこの距離以内は緩衝帯にしない
   // minForestHa: 緩衝帯が接すべき「まとまった森林」の最小面積 (ha)。田畑の間の木立は森林扱いしない
@@ -1824,10 +1824,24 @@ function computeFrame(t) {
     else compareScene = base;
   }
   // 消失の基準: 直前の観測時期（prev）／最初の観測時期に固定（first）／指定した観測時期（id）
-  const lb = state.display.lostBase || 'first';
-  if (lb === 'first') compareScene = tl.scenes[0].year < t - 1e-9 ? tl.scenes[0] : null;
-  else if (lb !== 'prev') { const s = tl.scenes.find(x => x.id === lb); compareScene = s && s.year < t - 1e-9 ? s : null; }
-  compare = compareScene ? compareScene.buffer : null;
+  const lb = state.display.lostBase || 'all';
+  let compareYear = compareScene ? compareScene.year : null;
+  if (lb === 'all') {
+    // それ以前のすべての観測時期で一度でも緩衝帯だった画素の和集合
+    const past = tl.scenes.filter(s => s.year < t - 1e-9);
+    if (past.length) {
+      const key = past.map(s => s.id).join(',');
+      if (!tl.unionCache || tl.unionCache.key !== key) {
+        const u = new Uint8Array(n); for (const s of past) for (let i = 0; i < n; i++) if (s.buffer[i]) u[i] = 1;
+        tl.unionCache = { key, mask: u };
+      }
+      compare = tl.unionCache.mask; compareYear = past[0].year; compareScene = null;
+    } else { compare = null; compareYear = null; }
+  } else {
+    if (lb === 'first') compareScene = tl.scenes[0].year < t - 1e-9 ? tl.scenes[0] : null;
+    else if (lb !== 'prev') { const s = tl.scenes.find(x => x.id === lb); compareScene = s && s.year < t - 1e-9 ? s : null; }
+    compare = compareScene ? compareScene.buffer : null; compareYear = compareScene ? compareScene.year : null;
+  }
   const cur = frameBuf.cur, lost = frameBuf.lost, forest = frameBuf.forest;
   const bf = base.cls.forest;
   let lostCount = 0, curCount = 0;
@@ -1837,7 +1851,7 @@ function computeFrame(t) {
     if (cur[i]) curCount++;
     forest[i] = bf[i] || l ? 1 : 0;
   }
-  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear: compareScene ? compareScene.year : null };
+  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear, compareAll: lb === 'all' };
 }
 
 // ---------- 描画 ----------
@@ -1968,7 +1982,7 @@ function updateHud(frame) {
   modeEl.textContent = frame.mode === 'obs' ? `観測: ${frame.base.label || frame.base.id}` : frame.mode === 'interp' ? `補間（${frame.base.year} → ${frame.next?.year} 年）` : `予測（${tl.start.year} 年を起点・${modelName(state.sim.model)}）`;
   const pct = tl.initialArea > 0 ? frame.areaHa / tl.initialArea * 100 : 0;
   let s = `森林緩衝帯 ${frame.areaHa.toFixed(1)} ha（${tl.scenes[0].year} 年比 ${pct.toFixed(0)}%）`;
-  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareYear} 年以降の消失 ${frame.lostHa.toFixed(1)} ha（紫）`;
+  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareAll ? `${frame.compareYear} 年以降のいずれかの時期に緩衝帯だった場所の消失` : `${frame.compareYear} 年以降の消失`} ${frame.lostHa.toFixed(1)} ha（紫）`;
   if (tl.projection.disappearYear != null && frame.mode === 'pred') s += `<br>予測消失年 ${tl.projection.disappearYear.toFixed(0)} 年`;
   $('hudStats').innerHTML = s;
 }
@@ -2052,7 +2066,7 @@ function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   const lb = $('lostBase');
-  const fillLostBase = () => { const cur = d.lostBase || 'first'; lb.innerHTML = '<option value="prev">直前の観測時期</option><option value="first">最初の観測時期（累積）</option>' + sortedScenes().map(s => `<option value="${esc(s.id)}">${s.year} 年に固定</option>`).join(''); lb.value = [...lb.options].some(o => o.value === cur) ? cur : 'first'; };
+  const fillLostBase = () => { const cur = d.lostBase || 'all'; lb.innerHTML = '<option value="all">過去のすべての時期（和集合）</option><option value="prev">直前の観測時期</option><option value="first">最初の観測時期</option>' + sortedScenes().map(s => `<option value="${esc(s.id)}">${s.year} 年に固定</option>`).join(''); lb.value = [...lb.options].some(o => o.value === cur) ? cur : 'all'; };
   fillLostBase(); state.refreshLostBase = fillLostBase;
   lb.addEventListener('change', () => { d.lostBase = lb.value; save(); requestRender(); });
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });

@@ -322,10 +322,24 @@ function computeFrame(t) {
     else compareScene = base;
   }
   // 消失の基準: 直前の観測時期（prev）／最初の観測時期に固定（first）／指定した観測時期（id）
-  const lb = state.display.lostBase || 'first';
-  if (lb === 'first') compareScene = tl.scenes[0].year < t - 1e-9 ? tl.scenes[0] : null;
-  else if (lb !== 'prev') { const s = tl.scenes.find(x => x.id === lb); compareScene = s && s.year < t - 1e-9 ? s : null; }
-  compare = compareScene ? compareScene.buffer : null;
+  const lb = state.display.lostBase || 'all';
+  let compareYear = compareScene ? compareScene.year : null;
+  if (lb === 'all') {
+    // それ以前のすべての観測時期で一度でも緩衝帯だった画素の和集合
+    const past = tl.scenes.filter(s => s.year < t - 1e-9);
+    if (past.length) {
+      const key = past.map(s => s.id).join(',');
+      if (!tl.unionCache || tl.unionCache.key !== key) {
+        const u = new Uint8Array(n); for (const s of past) for (let i = 0; i < n; i++) if (s.buffer[i]) u[i] = 1;
+        tl.unionCache = { key, mask: u };
+      }
+      compare = tl.unionCache.mask; compareYear = past[0].year; compareScene = null;
+    } else { compare = null; compareYear = null; }
+  } else {
+    if (lb === 'first') compareScene = tl.scenes[0].year < t - 1e-9 ? tl.scenes[0] : null;
+    else if (lb !== 'prev') { const s = tl.scenes.find(x => x.id === lb); compareScene = s && s.year < t - 1e-9 ? s : null; }
+    compare = compareScene ? compareScene.buffer : null; compareYear = compareScene ? compareScene.year : null;
+  }
   const cur = frameBuf.cur, lost = frameBuf.lost, forest = frameBuf.forest;
   const bf = base.cls.forest;
   let lostCount = 0, curCount = 0;
@@ -335,7 +349,7 @@ function computeFrame(t) {
     if (cur[i]) curCount++;
     forest[i] = bf[i] || l ? 1 : 0;
   }
-  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear: compareScene ? compareScene.year : null };
+  return { t, cur, lost, forest, base, next, frac, mode, areaHa: curCount * state.pxAreaHa, lostHa: lostCount * state.pxAreaHa, compareYear, compareAll: lb === 'all' };
 }
 
 // ---------- 描画 ----------
@@ -466,7 +480,7 @@ function updateHud(frame) {
   modeEl.textContent = frame.mode === 'obs' ? `観測: ${frame.base.label || frame.base.id}` : frame.mode === 'interp' ? `補間（${frame.base.year} → ${frame.next?.year} 年）` : `予測（${tl.start.year} 年を起点・${modelName(state.sim.model)}）`;
   const pct = tl.initialArea > 0 ? frame.areaHa / tl.initialArea * 100 : 0;
   let s = `森林緩衝帯 ${frame.areaHa.toFixed(1)} ha（${tl.scenes[0].year} 年比 ${pct.toFixed(0)}%）`;
-  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareYear} 年以降の消失 ${frame.lostHa.toFixed(1)} ha（紫）`;
+  if (state.display.showLost && frame.compareYear != null) s += `<br>${frame.compareAll ? `${frame.compareYear} 年以降のいずれかの時期に緩衝帯だった場所の消失` : `${frame.compareYear} 年以降の消失`} ${frame.lostHa.toFixed(1)} ha（紫）`;
   if (tl.projection.disappearYear != null && frame.mode === 'pred') s += `<br>予測消失年 ${tl.projection.disappearYear.toFixed(0)} 年`;
   $('hudStats').innerHTML = s;
 }
@@ -550,7 +564,7 @@ function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   const lb = $('lostBase');
-  const fillLostBase = () => { const cur = d.lostBase || 'first'; lb.innerHTML = '<option value="prev">直前の観測時期</option><option value="first">最初の観測時期（累積）</option>' + sortedScenes().map(s => `<option value="${esc(s.id)}">${s.year} 年に固定</option>`).join(''); lb.value = [...lb.options].some(o => o.value === cur) ? cur : 'first'; };
+  const fillLostBase = () => { const cur = d.lostBase || 'all'; lb.innerHTML = '<option value="all">過去のすべての時期（和集合）</option><option value="prev">直前の観測時期</option><option value="first">最初の観測時期</option>' + sortedScenes().map(s => `<option value="${esc(s.id)}">${s.year} 年に固定</option>`).join(''); lb.value = [...lb.options].some(o => o.value === cur) ? cur : 'all'; };
   fillLostBase(); state.refreshLostBase = fillLostBase;
   lb.addEventListener('change', () => { d.lostBase = lb.value; save(); requestRender(); });
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
