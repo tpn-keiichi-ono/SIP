@@ -1537,9 +1537,15 @@ function drawPhotos(ctx) {
   ctx.save();
   state.photos.forEach((p, k) => {
     const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const r = sel ? 8 : 5;
-    if (p.dir != null) { // 撮影方向
-      const a = (p.dir - 90) * Math.PI / 180;
-      ctx.strokeStyle = sel ? '#ffd400' : 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + Math.cos(a) * (r + 7), q.y + Math.sin(a) * (r + 7)); ctx.stroke();
+    if (p.dir != null) { // 撮影方向の矢印
+      const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
+      const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
+      const col = sel ? '#ffd400' : 'rgba(255,255,255,0.95)';
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(q.x + Math.cos(a) * r, q.y + Math.sin(a) * r); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tx + Math.cos(a) * head, ty + Math.sin(a) * head);
+      ctx.lineTo(tx + Math.cos(a + 2.5) * head, ty + Math.sin(a + 2.5) * head);
+      ctx.lineTo(tx + Math.cos(a - 2.5) * head, ty + Math.sin(a - 2.5) * head); ctx.closePath(); ctx.fill();
     }
     ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fillStyle = sel ? '#ffd400' : 'rgba(40,120,255,0.92)'; ctx.fill();
     ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
