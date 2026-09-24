@@ -365,11 +365,26 @@ function waterWithCoast(scene) {
   }
   return coastCache.mask;
 }
+/** 家の形のアイコン（屋根＋壁）。s は半幅（画素）。 */
+function drawHouseIcon(ctx, x, y, s, fill) {
+  ctx.beginPath();
+  ctx.moveTo(x - s, y);            // 屋根左端
+  ctx.lineTo(x, y - s * 1.1);      // 屋根の頂点
+  ctx.lineTo(x + s, y);            // 屋根右端
+  ctx.lineTo(x + s * 0.7, y);
+  ctx.lineTo(x + s * 0.7, y + s);  // 壁
+  ctx.lineTo(x - s * 0.7, y + s);
+  ctx.lineTo(x - s * 0.7, y);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = '#333'; ctx.stroke();
+  // 扉
+  ctx.fillStyle = '#333'; ctx.fillRect(x - s * 0.18, y + s * 0.35, s * 0.36, s * 0.65);
+}
 function drawHouses(ctx) {
   // 表示中の写真（フレームの基準時期）の住居を描く
   const base = lastFrame?.base || selectedScene(); if (!base) return;
   ctx.save();
-  const draw = (list, fill) => { for (const h of list) { const q = toScreen(h.x, h.y); ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.stroke(); } };
+  const draw = (list, fill) => { for (const h of list) { const q = toScreen(h.x, h.y); drawHouseIcon(ctx, q.x, q.y, 6, fill); } };
   draw(state.settlement.houses, '#ffffff');
   draw(state.settlement.housesByScene[base.id] || [], '#ffe9a8');
   ctx.restore();
