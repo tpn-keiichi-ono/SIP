@@ -23,7 +23,7 @@
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="photoHover" hidden><img id="photoHoverImg" alt=""><div id="photoHoverCap"></div></div>
-      <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="zoomFit" title="全体表示">⤢</button><button id="btnHome" title="初期表示（集落周辺）">⌂</button></div>
+      <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="btnHome" title="初期表示（集落周辺）">⌂</button></div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
         <div class="imgWrap" id="photoImgWrap" title="クリックで全画面表示"><img id="photoImg" alt="現地写真"><span class="expand" aria-hidden="true">⤢</span><span class="hint">クリックで全画面</span></div>
@@ -55,7 +55,7 @@
   </section>
 
   <aside>
-    <details>
+    <details open>
       <summary>表示</summary>
       <div class="body">
         <div class="ctl"><label for="opacity">赤の不透明度</label><input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.45"><span class="val" id="opacityVal">0.45</span></div>
@@ -83,7 +83,7 @@
         <p class="note">GPS と空中写真の位置合わせにずれがある場合、写真の地点全体を 5 m 単位で動かせます（全写真に共通）。</p>
         <div class="checks">
         </div>
-        <div class="btns"><button id="btnFit">全体表示</button><span class="note">ドラッグで移動、ホイールまたはピンチで拡大縮小</span></div>
+        <p class="note">ドラッグで移動、ホイールまたはピンチで拡大縮小。左下の ＋／－ で拡大縮小、⌂ で初期表示に戻ります。</p>
       </div>
     </details>
 
