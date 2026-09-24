@@ -29,7 +29,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #hud .mode { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,.55); font-size: 11px; }
 #hud .mode.pred { background: rgba(227,73,72,.85); }
 #hud .stats { margin-top: 6px; font-size: 12px; line-height: 1.5; }
-#legend { position: absolute; right: 12px; bottom: 10px; background: rgba(0,0,0,.55); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 11px; display: flex; gap: 12px; pointer-events: none; }
+#legend { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); padding: 6px 12px; border-radius: 6px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
 #legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
 #legend .l-lost::before { background: rgba(150,70,230,.8); }
@@ -37,11 +37,11 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-excl::before { background: rgba(120,200,120,.7); }
 #legend .l-field::before { background: rgba(255,220,90,.8); }
 #legend .l-bandlost::before { background: rgba(60,90,60,.9); }
-#legend .l-set::before { background: rgba(250,250,250,.8); }
+#legend .l-set::before { background: rgba(230,230,230,1); border: 1px solid #999; }
 #legend .l-for::before { background: rgba(40,150,70,.7); }
 #legend .l-built::before { background: rgba(235,235,235,.8); }
 #legend .l-house::before { background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M1 7 L7 1.4 L13 7 L11 7 L11 13 L3 13 L3 7 Z' fill='%23fff' stroke='%23333' stroke-width='1.2'/><rect x='6' y='9' width='2' height='4' fill='%23333'/></svg>") center/contain no-repeat; border-radius: 0 !important; width: 13px !important; height: 13px !important; }
-#legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #fff; width: 10px !important; height: 10px !important; }
+#legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #333; width: 10px !important; height: 10px !important; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
 #zoomCtl { position: absolute; left: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 3; }
 #zoomCtl button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; border-radius: 6px; background: rgba(255,255,255,.92); border: 1px solid #999; color: #222; }
@@ -111,7 +111,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
   #viewerWrap { aspect-ratio: 3 / 2; max-height: 60vh; border-radius: 4px; }
   #hud .year { font-size: 24px; }
   #hud .stats { font-size: 11px; }
-  #legend { font-size: 10px; padding: 4px 8px; gap: 8px; right: 8px; bottom: 6px; }
+  #legend { font-size: 11px; padding: 4px 8px; gap: 4px 10px; }
   #timeline { padding: 8px 10px 2px; }
   #timeline .row { flex-wrap: wrap; gap: 8px; }
   #timeline input[type=range] { flex-basis: 100%; order: 3; min-height: 32px; }
@@ -148,9 +148,6 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="mode" id="hudMode">観測</div>
         <div class="stats" id="hudStats"></div>
       </div>
-      <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">過去に緩衝帯だった場所（推定）</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
-      </div>
       <div id="zoomCtl"><button id="zoomIn" title="拡大">＋</button><button id="zoomOut" title="縮小">－</button><button id="zoomFit" title="全体表示">⤢</button></div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -160,6 +157,9 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
       </div>
       <div id="loading"><div style="max-width:560px;text-align:center;line-height:1.6">画像を読み込んで分類しています…<br><small id="loadingHint">この表示のまま変わらない場合、スクリプトの実行が許可されていない環境（ファイルプレビューなど）です。ブラウザで直接開くか、サーバー経由で開いてください。</small></div></div>
     </div>
+    <div id="legend">
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">過去に緩衝帯だった場所（推定）</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
+      </div>
     <div id="timeline">
       <div class="row">
         <button id="btnPlay" class="primary" title="再生 / 一時停止">▶ 再生</button>
