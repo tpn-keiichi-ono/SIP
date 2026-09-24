@@ -23,7 +23,7 @@
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
       </div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -58,6 +58,7 @@
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
           <label><input type="checkbox" id="showSettlement" checked> 住宅地</label>
+          <label><input type="checkbox" id="showExcl" checked> 棚田跡（除外範囲）</label>
           <label><input type="checkbox" id="showSparse"> 疎林・草地（全体）</label>
           <label><input type="checkbox" id="showField"> 田畑</label>
           <label><input type="checkbox" id="showBandLost"> 帯のうち森林化した部分</label>
@@ -148,6 +149,10 @@
         <div class="ctl"><label for="houseRadius">住居の半径 (m)</label><input type="range" id="houseRadius" min="5" max="60" step="5" value="20"><span class="val" id="houseRadiusVal">20 m</span></div>
         <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
         <p class="note" id="settleInfo"></p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
+        <p class="note"><b>棚田跡（緩衝帯から除外）</b>：かつて棚田だった土地など、疎林・草地でも緩衝帯とみなさない範囲を多角形で描きます（薄い緑で表示）。全時期に適用されます。</p>
+        <div class="btns"><button id="btnExcl">棚田跡を描く</button><button id="btnExclDone" hidden>範囲を確定</button><button id="btnExclUndo">最後の範囲を削除</button><button id="btnExclClear">すべてクリア</button></div>
+        <p class="note" id="exclInfo"></p>
         <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>
         <div class="ctl"><label for="brushSize">ブラシ半径 (px)</label><input type="range" id="brushSize" min="2" max="60" step="1" value="12"><span class="val" id="brushSizeVal">12</span></div>
         <div class="btns"><button id="btnCorrClear">この時期の修正をクリア</button></div>

@@ -47,6 +47,8 @@ window.SIP_CONFIG = {
   // adjacencyM: 緩衝帯の塊が生活空間からこの距離以内で接していることを要求（0 で条件なし）
   // 現地の実例（集落南側の旧道沿いの帯が緩衝帯、2022 年に森林化して消失）に合わせ、帯 100 m・接続条件なしを採用
   buffer: { edgeBandM: 100, forestNearM: 40, coastAwayM: 60, minForestHa: 1, adjacencyM: 0, aoi: [] },
+  // 棚田跡など、疎林・草地でも緩衝帯とみなさない範囲（画像座標の多角形。画面上で描いて追加できる）
+  exclusion: { polygons: [] },
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {

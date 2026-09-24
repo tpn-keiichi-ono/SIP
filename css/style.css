@@ -27,6 +27,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
 #legend .l-lost::before { background: rgba(120,10,40,.75); }
 #legend .l-sparse::before { background: rgba(255,150,40,.8); }
+#legend .l-excl::before { background: rgba(120,200,120,.7); }
 #legend .l-field::before { background: rgba(255,220,90,.8); }
 #legend .l-bandlost::before { background: rgba(60,90,60,.9); }
 #legend .l-set::before { background: rgba(250,250,250,.8); }

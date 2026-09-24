@@ -34,6 +34,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-buf::before { background: rgba(230,40,40,.75); }
 #legend .l-lost::before { background: rgba(120,10,40,.75); }
 #legend .l-sparse::before { background: rgba(255,150,40,.8); }
+#legend .l-excl::before { background: rgba(120,200,120,.7); }
 #legend .l-field::before { background: rgba(255,220,90,.8); }
 #legend .l-bandlost::before { background: rgba(60,90,60,.9); }
 #legend .l-set::before { background: rgba(250,250,250,.8); }
@@ -144,7 +145,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
       </div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -179,6 +180,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="checks">
           <label><input type="checkbox" id="showLost" checked> 消失部分を強調</label>
           <label><input type="checkbox" id="showSettlement" checked> 住宅地</label>
+          <label><input type="checkbox" id="showExcl" checked> 棚田跡（除外範囲）</label>
           <label><input type="checkbox" id="showSparse"> 疎林・草地（全体）</label>
           <label><input type="checkbox" id="showField"> 田畑</label>
           <label><input type="checkbox" id="showBandLost"> 帯のうち森林化した部分</label>
@@ -269,6 +271,10 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="ctl"><label for="houseRadius">住居の半径 (m)</label><input type="range" id="houseRadius" min="5" max="60" step="5" value="20"><span class="val" id="houseRadiusVal">20 m</span></div>
         <div class="btns"><button id="btnSettle">生活空間を描く</button><button id="btnSettleDone" hidden>範囲を確定</button><button id="btnSettleUndo">最後の範囲を削除</button><button id="btnSettleClear">すべてクリア</button></div>
         <p class="note" id="settleInfo"></p>
+        <hr style="border:0;border-top:1px solid var(--border);margin:2px 0">
+        <p class="note"><b>棚田跡（緩衝帯から除外）</b>：かつて棚田だった土地など、疎林・草地でも緩衝帯とみなさない範囲を多角形で描きます（薄い緑で表示）。全時期に適用されます。</p>
+        <div class="btns"><button id="btnExcl">棚田跡を描く</button><button id="btnExclDone" hidden>範囲を確定</button><button id="btnExclUndo">最後の範囲を削除</button><button id="btnExclClear">すべてクリア</button></div>
+        <p class="note" id="exclInfo"></p>
         <div class="ctl"><label>手動修正ブラシ</label><select id="brushMode"><option value="0">なし（移動）</option><option value="1">緩衝帯に追加</option><option value="-1">緩衝帯から除外</option></select><span></span></div>
         <div class="ctl"><label for="brushSize">ブラシ半径 (px)</label><input type="range" id="brushSize" min="2" max="60" step="1" value="12"><span class="val" id="brushSizeVal">12</span></div>
         <div class="btns"><button id="btnCorrClear">この時期の修正をクリア</button></div>
@@ -365,6 +371,8 @@ window.SIP_CONFIG = {
   // adjacencyM: 緩衝帯の塊が生活空間からこの距離以内で接していることを要求（0 で条件なし）
   // 現地の実例（集落南側の旧道沿いの帯が緩衝帯、2022 年に森林化して消失）に合わせ、帯 100 m・接続条件なしを採用
   buffer: { edgeBandM: 100, forestNearM: 40, coastAwayM: 60, minForestHa: 1, adjacencyM: 0, aoi: [] },
+  // 棚田跡など、疎林・草地でも緩衝帯とみなさない範囲（画像座標の多角形。画面上で描いて追加できる）
+  exclusion: { polygons: [] },
   // 生活空間（住宅地・集落）。緩衝帯から除外する。autoM: 人工物（建物・道路）の周囲を生活空間とみなす距離 (m)、
   // polygons: 画像座標の多角形（画面上で描いて追加・削除できる）
   settlement: {
@@ -1000,11 +1008,12 @@ function classifyScene(feat, W, H, params, water, samples) {
  *  - forestNearPx … 0 より大きい場合、この距離以内に「まとまった森林」がある画素だけを緩衝帯とする（海側など森に面していない縁を除く）
  *  - minForestRegionPx … 「まとまった森林」とみなす森林の塊の最小面積（画素）。田畑の間の小さな木立は森林扱いしない
  *  - coastAwayPx  … 0 より大きい場合、水域からこの距離以内の画素は緩衝帯にしない
+ *  - exclude      … 棚田跡など、緩衝帯とみなさない範囲のマスク
  *  - aoi        … 解析範囲（多角形マスク）。null なら全陸域。
  *  - correction … 手動修正（Int8: +1 緩衝帯に強制, -1 除外, 0 変更なし）
  * @returns {{buffer:Uint8Array, band:Uint8Array|null, human:Uint8Array}}
  */
-function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6, minForestRegionPx = 2600 } = {}) {
+function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, human = null, minHumanRegionPx = 400, minBufferRegionPx = 130, forestNearPx = 0, coastAwayPx = 0, water = null, adjacencyPx = 6, minForestRegionPx = 2600, exclude = null } = {}) {
   const n = W * H;
   // 田畑・人工物は、森の中の小さな断片（誤判定や小屋など）を除き、まとまった区画だけを生活空間とみなす
   const fieldBuilt = new Uint8Array(n);
@@ -1033,6 +1042,7 @@ function buildBuffer(cls, W, H, { aoi = null, correction = null, bandPx = 0, hum
     const dW = distanceTransform(wc, W, H);
     for (let i = 0; i < n; i++) if (buf[i] && dW[i] <= coastAwayPx) buf[i] = 0;
   }
+  if (exclude) for (let i = 0; i < n; i++) if (exclude[i]) buf[i] = 0; // 棚田跡など、緩衝帯とみなさない範囲
   let out = minBufferRegionPx > 1 ? removeSmallRegions(buf, W, H, minBufferRegionPx, 8) : buf; // 帯の中の細かな斑点を除く
   if (adjacencyPx > 0) {
     // 生活空間に接している塊だけを緩衝帯とする（帯の中でも生活空間から浮いている疎林は除く）
@@ -1241,6 +1251,9 @@ const DEFAULT_STYLE = {
   sparseColor: [255, 150, 40],
   sparseOpacity: 0.35,
   showSparse: false,
+  exclColor: [120, 200, 120],
+  exclOpacity: 0.3,
+  showExcl: true,
   fieldColor: [255, 220, 90],
   fieldOpacity: 0.35,
   showField: false,
@@ -1269,11 +1282,13 @@ function composeOverlay(imgData, layers, style) {
   const cBuilt = pack(s.builtColor[0], s.builtColor[1], s.builtColor[2], Math.round(255 * s.builtOpacity));
   const cWater = pack(s.waterColor[0], s.waterColor[1], s.waterColor[2], Math.round(255 * s.waterOpacity));
   const cSparse = pack(s.sparseColor[0], s.sparseColor[1], s.sparseColor[2], Math.round(255 * s.sparseOpacity));
+  const cExcl = pack(s.exclColor[0], s.exclColor[1], s.exclColor[2], Math.round(255 * s.exclOpacity));
   const cField = pack(s.fieldColor[0], s.fieldColor[1], s.fieldColor[2], Math.round(255 * s.fieldOpacity));
   const cBandLost = pack(s.bandLostColor[0], s.bandLostColor[1], s.bandLostColor[2], Math.round(255 * s.bandLostOpacity));
   const cSet = pack(s.settlementColor[0], s.settlementColor[1], s.settlementColor[2], Math.round(255 * s.settlementOpacity));
   const cDim = pack(20, 20, 20, 110);
-  const { buffer, lost, forest, built, water, aoi, settlement, field, band, sparse } = layers;
+  const { buffer, lost, forest, built, water, aoi, settlement, field, band, sparse, excl } = layers;
+  const showExcl = s.showExcl && excl;
   const showSparse = s.showSparse && sparse;
   const showSet = s.showSettlement && settlement;
   const showField = s.showField && field;
@@ -1286,6 +1301,7 @@ function composeOverlay(imgData, layers, style) {
     else if (showLost && lost[i]) v = cLost;
     else if (showBandLost && band[i] && forest[i]) v = cBandLost;
     else if (showSet && settlement[i]) v = cSet;
+    else if (showExcl && excl[i]) v = cExcl;
     else if (showField && field[i]) v = cField;
     else if (showSparse && sparse[i]) v = cSparse;
     else if (showWater && water[i]) v = cWater;
@@ -1500,6 +1516,7 @@ const state = {
   settlement: normalizeSettlement(CFG.settlement),
   houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
+  exclusion: { polygons: (CFG.exclusion?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) }, exclPoints: [], exclDrawing: false, exclMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1, adjacencyM: CFG.buffer?.adjacencyM ?? 12 },
   sim: { ...CFG.simulation },
@@ -1634,7 +1651,7 @@ function serialize() {
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
     display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, adjacencyM: state.buffer.adjacencyM, aoi: state.aoiPoints }, sim: state.sim,
-    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
+    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement, exclusion: state.exclusion,
   };
 }
 let saveTimer = null;
@@ -1649,6 +1666,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.exclusion) state.exclusion = { polygons: (saved.exclusion.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.settlement) state.settlement = normalizeSettlement({ ...state.settlement, ...saved.settlement, housesByScene: saved.settlement.housesByScene || state.settlement.housesByScene });
   if (saved.scenes) {
     for (const ss of saved.scenes) {
@@ -1702,7 +1720,7 @@ function recomputeScene(s) {
 function recomputeBuffer(s) {
   const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx), adjacencyPx: (state.buffer.adjacencyM ?? 12) / state.mPerPx });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx), adjacencyPx: (state.buffer.adjacencyM ?? 12) / state.mPerPx, exclude: exclusionMask() });
   s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
@@ -1713,6 +1731,15 @@ function recomputeBuffer(s) {
     forest: countMask(s.cls.forest, state.aoiMask) * state.pxAreaHa,
     built: countMask(s.cls.built, state.aoiMask) * state.pxAreaHa,
   };
+}
+/** 棚田跡などの除外範囲マスク（全時期共通）。 */
+function exclusionMask() {
+  if (!state.exclusion.polygons.length) return null;
+  if (!state.exclMask) {
+    const n = state.W * state.H; state.exclMask = new Uint8Array(n);
+    for (const poly of state.exclusion.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.exclMask[i] = 1; }
+  }
+  return state.exclMask;
 }
 /** 生活空間マスク = 描いた多角形 ∪ 人工物の周囲 autoM (m)。 */
 function settlementMask(s) {
@@ -1830,8 +1857,8 @@ function buildOverlay(frame) {
   }
   const d = state.display;
   composeOverlay(overlayData, {
-    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band, sparse: frame.base.cls.sparse,
-  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost, showSparse: !!d.showSparse });
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band, sparse: frame.base.cls.sparse, excl: exclusionMask(),
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost, showSparse: !!d.showSparse, showExcl: d.showExcl !== false });
   overlayCtx.putImageData(overlayData, 0, 0);
   return overlayCanvas;
 }
@@ -1905,6 +1932,8 @@ function render() {
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
   if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
   if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
+  if (state.display.showExcl !== false || state.exclDrawing) for (const poly of state.exclusion.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(120,220,120,0.95)', vertexRadius: 0, dash: [5, 4] });
+  if (state.exclPoints.length) drawPolygon(vctx, state.exclPoints, toScreen, { closed: false, color: '#7be07b' });
   if (state.display.showSettlement !== false || state.houseTool) drawHouses(vctx);
   drawPhotos(vctx);
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
@@ -2005,6 +2034,7 @@ function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showExcl', () => d.showExcl !== false, (v) => { d.showExcl = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSparse', () => !!d.showSparse, (v) => { d.showSparse = v; save(); syncLegend(); requestRender(); });
   bindCheck('showField', () => !!d.showField, (v) => { d.showField = v; save(); syncLegend(); requestRender(); });
@@ -2020,7 +2050,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legExcl').hidden = d.showExcl === false || !state.exclusion.polygons.length; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
@@ -2139,6 +2169,15 @@ function setupBufferPanel() {
     $('btnSettle').classList.toggle('active', state.settleDrawing); $('btnSettleDone').hidden = !state.settleDrawing; viewer.classList.toggle('drawing', state.settleDrawing); requestRender();
   });
   $('btnSettleDone').addEventListener('click', finishSettle);
+  $('btnExcl').addEventListener('click', () => {
+    state.exclDrawing = !state.exclDrawing; state.exclPoints = [];
+    if (state.exclDrawing) { if (state.settleDrawing) finishSettle(); if (state.aoiDrawing) finishAoi(); }
+    $('btnExcl').classList.toggle('active', state.exclDrawing); $('btnExclDone').hidden = !state.exclDrawing; viewer.classList.toggle('drawing', state.exclDrawing); requestRender();
+  });
+  $('btnExclDone').addEventListener('click', finishExcl);
+  $('btnExclUndo').addEventListener('click', () => { state.exclusion.polygons.pop(); exclusionChanged(); });
+  $('btnExclClear').addEventListener('click', () => { if (!state.exclusion.polygons.length || confirm('棚田跡の除外範囲をすべて削除しますか？')) { state.exclusion.polygons = []; exclusionChanged(); } });
+  updateExclInfo();
   bindRange('houseRadius', 'houseRadiusVal', () => state.settlement.houseRadiusM, (v) => { state.settlement.houseRadiusM = v; settlementChanged(); }, (v) => `${v} m`);
   const houseBtns = $('houseTools').querySelectorAll('button');
   houseBtns.forEach(b => b.addEventListener('click', () => {
@@ -2161,6 +2200,15 @@ function setupBufferPanel() {
 let bufferTimer = null;
 function scheduleBufferRecompute() { clearTimeout(bufferTimer); bufferTimer = setTimeout(recomputeAllBuffers, 120); }
 function recomputeAllBuffers() { for (const s of state.scenes) if (s.cls) recomputeBuffer(s); rebuildTimeline(); requestRender(); }
+function finishExcl() {
+  state.exclDrawing = false; $('btnExcl').classList.remove('active'); $('btnExclDone').hidden = true; viewer.classList.remove('drawing');
+  const pts = state.exclPoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
+  state.exclPoints = [];
+  if (pts.length >= 3) state.exclusion.polygons.push(pts);
+  exclusionChanged();
+}
+function exclusionChanged() { state.exclMask = null; save(); updateExclInfo(); syncLegend(); recomputeAllBuffers(); }
+function updateExclInfo() { const ha = state.exclusion.polygons.length ? countMask(exclusionMask()) * state.pxAreaHa : 0; $('exclInfo').textContent = `棚田跡の除外範囲: ${state.exclusion.polygons.length} か所（${ha.toFixed(1)} ha）`; }
 function finishSettle() {
   state.settleDrawing = false; $('btnSettle').classList.remove('active'); $('btnSettleDone').hidden = true; viewer.classList.remove('drawing');
   const pts = state.settlePoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
@@ -2247,7 +2295,7 @@ function setupViewer() {
       return;
     }
     lastX = e.clientX; lastY = e.clientY; moved = false;
-    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode || state.houseTool) return;
+    if (state.aoiDrawing || state.settleDrawing || state.exclDrawing || state.sampleTool.mode || state.houseTool) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
@@ -2285,7 +2333,7 @@ function setupViewer() {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
-    if (!state.sampleTool.mode && !state.houseTool && !state.settleDrawing && !state.aoiDrawing && state.brush.mode === 0) { const k = photoAt(e.clientX - r.left, e.clientY - r.top); if (k >= 0) { showPhoto(k); return; } }
+    if (!state.sampleTool.mode && !state.houseTool && !state.settleDrawing && !state.exclDrawing && !state.aoiDrawing && state.brush.mode === 0) { const k = photoAt(e.clientX - r.left, e.clientY - r.top); if (k >= 0) { showPhoto(k); return; } }
     if (state.sampleTool.mode) { sampleClick(p); return; }
     if (state.houseTool === 'add') {
       const s = selectedScene();
@@ -2301,10 +2349,11 @@ function setupViewer() {
       return;
     }
     if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
+    if (state.exclDrawing) { state.exclPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
     if (!state.aoiDrawing) return;
     state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();
   });
-  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } else if (state.settleDrawing) { e.preventDefault(); finishSettle(); } });
+  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } else if (state.settleDrawing) { e.preventDefault(); finishSettle(); } else if (state.exclDrawing) { e.preventDefault(); finishExcl(); } });
   viewer.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = viewer.getBoundingClientRect();
@@ -2315,7 +2364,7 @@ function setupViewer() {
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
-    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
+    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.exclDrawing) finishExcl(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
   });
   new ResizeObserver(() => { fitView(); chart.draw(); }).observe($('viewerWrap'));
 }
@@ -2348,7 +2397,7 @@ function setupIO() {
   $('btnJson').addEventListener('click', () => download(new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' }), 'forest-buffer-settings.json'));
   $('jsonInput').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; state.settlePolyMask = null; updateSettleInfo(); save(); recomputeAll(); }
+    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; state.settlePolyMask = null; state.exclMask = null; updateSettleInfo(); updateExclInfo(); save(); recomputeAll(); }
     catch (err) { alert('設定を読み込めませんでした: ' + err.message); }
     e.target.value = '';
   });

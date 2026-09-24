@@ -18,6 +18,7 @@ const state = {
   settlement: normalizeSettlement(CFG.settlement),
   houseTool: null, houseShared: false,
   settlePoints: [], settleDrawing: false, settlePolyMask: null,
+  exclusion: { polygons: (CFG.exclusion?.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) }, exclPoints: [], exclDrawing: false, exclMask: null,
   display: { ...CFG.display },
   buffer: { edgeBandM: CFG.buffer?.edgeBandM ?? 0, forestNearM: CFG.buffer?.forestNearM ?? 40, coastAwayM: CFG.buffer?.coastAwayM ?? 60, minForestHa: CFG.buffer?.minForestHa ?? 1, adjacencyM: CFG.buffer?.adjacencyM ?? 12 },
   sim: { ...CFG.simulation },
@@ -152,7 +153,7 @@ function serialize() {
       correction: s.correction ? rleEncode(s.correction) : null,
     })),
     display: state.display, buffer: { edgeBandM: state.buffer.edgeBandM, forestNearM: state.buffer.forestNearM, coastAwayM: state.buffer.coastAwayM, minForestHa: state.buffer.minForestHa, adjacencyM: state.buffer.adjacencyM, aoi: state.aoiPoints }, sim: state.sim,
-    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement,
+    samples: state.samples, coastBandM: state.coastBandM, settlement: state.settlement, exclusion: state.exclusion,
   };
 }
 let saveTimer = null;
@@ -167,6 +168,7 @@ function applySaved(saved) {
   if (saved.sim) Object.assign(state.sim, saved.sim);
   if (saved.samples) state.samples = normalizeSamples(saved.samples);
   if (saved.coastBandM != null) state.coastBandM = saved.coastBandM;
+  if (saved.exclusion) state.exclusion = { polygons: (saved.exclusion.polygons || []).map(p => p.map(q => ({ x: q.x, y: q.y }))) };
   if (saved.settlement) state.settlement = normalizeSettlement({ ...state.settlement, ...saved.settlement, housesByScene: saved.settlement.housesByScene || state.settlement.housesByScene });
   if (saved.scenes) {
     for (const ss of saved.scenes) {
@@ -220,7 +222,7 @@ function recomputeScene(s) {
 function recomputeBuffer(s) {
   const bandPx = state.buffer.edgeBandM > 0 ? state.buffer.edgeBandM / state.mPerPx : 0;
   s.settlement = settlementMask(s);
-  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx), adjacencyPx: (state.buffer.adjacencyM ?? 12) / state.mPerPx });
+  const r = buildBuffer(s.cls, state.W, state.H, { aoi: state.aoiMask, correction: s.correction, bandPx, human: s.settlement, forestNearPx: (state.buffer.forestNearM || 0) / state.mPerPx, coastAwayPx: (state.buffer.coastAwayM || 0) / state.mPerPx, water: state.water, minForestRegionPx: (state.buffer.minForestHa ?? 1) * 10000 / (state.mPerPx * state.mPerPx), adjacencyPx: (state.buffer.adjacencyM ?? 12) / state.mPerPx, exclude: exclusionMask() });
   s.buffer = r.buffer; s.band = r.band; s.human = r.human;
   s.stats = {
     settlement: countMask(s.settlement, state.aoiMask) * state.pxAreaHa,
@@ -231,6 +233,15 @@ function recomputeBuffer(s) {
     forest: countMask(s.cls.forest, state.aoiMask) * state.pxAreaHa,
     built: countMask(s.cls.built, state.aoiMask) * state.pxAreaHa,
   };
+}
+/** 棚田跡などの除外範囲マスク（全時期共通）。 */
+function exclusionMask() {
+  if (!state.exclusion.polygons.length) return null;
+  if (!state.exclMask) {
+    const n = state.W * state.H; state.exclMask = new Uint8Array(n);
+    for (const poly of state.exclusion.polygons) { const m = polygonMask(poly, state.W, state.H); for (let i = 0; i < n; i++) if (m[i]) state.exclMask[i] = 1; }
+  }
+  return state.exclMask;
 }
 /** 生活空間マスク = 描いた多角形 ∪ 人工物の周囲 autoM (m)。 */
 function settlementMask(s) {
@@ -348,8 +359,8 @@ function buildOverlay(frame) {
   }
   const d = state.display;
   composeOverlay(overlayData, {
-    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band, sparse: frame.base.cls.sparse,
-  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost, showSparse: !!d.showSparse });
+    buffer: frame.cur, lost: frame.lost, forest: frame.forest, built: frame.base.cls.built, water: waterWithCoast(frame.base), aoi: state.aoiMask, settlement: frame.base.settlement, field: frame.base.cls.open, band: frame.base.band, sparse: frame.base.cls.sparse, excl: exclusionMask(),
+  }, { opacity: d.opacity, showLost: d.showLost, showForest: d.showForest, showBuilt: d.showBuilt, showWater: d.showWater, showSettlement: d.showSettlement !== false, showField: !!d.showField, showBandLost: !!d.showBandLost, showSparse: !!d.showSparse, showExcl: d.showExcl !== false });
   overlayCtx.putImageData(overlayData, 0, 0);
   return overlayCanvas;
 }
@@ -423,6 +434,8 @@ function render() {
   if (state.aoiPoints.length) drawPolygon(vctx, state.aoiPoints, toScreen, { closed: !state.aoiDrawing });
   if (state.display.showSettlement !== false || state.settleDrawing) for (const poly of state.settlement.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(255,255,255,0.9)', vertexRadius: 0, dash: [3, 3] });
   if (state.settlePoints.length) drawPolygon(vctx, state.settlePoints, toScreen, { closed: false, color: '#ffffff' });
+  if (state.display.showExcl !== false || state.exclDrawing) for (const poly of state.exclusion.polygons) drawPolygon(vctx, poly, toScreen, { color: 'rgba(120,220,120,0.95)', vertexRadius: 0, dash: [5, 4] });
+  if (state.exclPoints.length) drawPolygon(vctx, state.exclPoints, toScreen, { closed: false, color: '#7be07b' });
   if (state.display.showSettlement !== false || state.houseTool) drawHouses(vctx);
   drawPhotos(vctx);
   if (state.sampleTool.mode || state.sampleTool.show) drawSamples(vctx);
@@ -523,6 +536,7 @@ function setupDisplayPanel() {
   const d = state.display;
   bindRange('opacity', 'opacityVal', () => d.opacity, (v) => { d.opacity = v; save(); requestRender(); }, (v) => v.toFixed(2));
   bindCheck('showLost', () => d.showLost, (v) => { d.showLost = v; save(); syncLegend(); requestRender(); });
+  bindCheck('showExcl', () => d.showExcl !== false, (v) => { d.showExcl = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSettlement', () => d.showSettlement !== false, (v) => { d.showSettlement = v; save(); syncLegend(); requestRender(); });
   bindCheck('showSparse', () => !!d.showSparse, (v) => { d.showSparse = v; save(); syncLegend(); requestRender(); });
   bindCheck('showField', () => !!d.showField, (v) => { d.showField = v; save(); syncLegend(); requestRender(); });
@@ -538,7 +552,7 @@ function setupDisplayPanel() {
 }
 function syncLegend() {
   const d = state.display;
-  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
+  $('legLost').hidden = !d.showLost; $('legSet').hidden = d.showSettlement === false; $('legField').hidden = !d.showField; $('legSparse').hidden = !d.showSparse; $('legHouse').hidden = d.showSettlement === false; $('legExcl').hidden = d.showExcl === false || !state.exclusion.polygons.length; $('legPhoto').hidden = d.showPhotos === false || !state.photos.length; $('legBandLost').hidden = !d.showBandLost; $('legFor').hidden = !d.showForest; $('legBuilt').hidden = !d.showBuilt; $('legWater').hidden = !d.showWater;
 }
 
 function renderSceneTable() {
@@ -657,6 +671,15 @@ function setupBufferPanel() {
     $('btnSettle').classList.toggle('active', state.settleDrawing); $('btnSettleDone').hidden = !state.settleDrawing; viewer.classList.toggle('drawing', state.settleDrawing); requestRender();
   });
   $('btnSettleDone').addEventListener('click', finishSettle);
+  $('btnExcl').addEventListener('click', () => {
+    state.exclDrawing = !state.exclDrawing; state.exclPoints = [];
+    if (state.exclDrawing) { if (state.settleDrawing) finishSettle(); if (state.aoiDrawing) finishAoi(); }
+    $('btnExcl').classList.toggle('active', state.exclDrawing); $('btnExclDone').hidden = !state.exclDrawing; viewer.classList.toggle('drawing', state.exclDrawing); requestRender();
+  });
+  $('btnExclDone').addEventListener('click', finishExcl);
+  $('btnExclUndo').addEventListener('click', () => { state.exclusion.polygons.pop(); exclusionChanged(); });
+  $('btnExclClear').addEventListener('click', () => { if (!state.exclusion.polygons.length || confirm('棚田跡の除外範囲をすべて削除しますか？')) { state.exclusion.polygons = []; exclusionChanged(); } });
+  updateExclInfo();
   bindRange('houseRadius', 'houseRadiusVal', () => state.settlement.houseRadiusM, (v) => { state.settlement.houseRadiusM = v; settlementChanged(); }, (v) => `${v} m`);
   const houseBtns = $('houseTools').querySelectorAll('button');
   houseBtns.forEach(b => b.addEventListener('click', () => {
@@ -679,6 +702,15 @@ function setupBufferPanel() {
 let bufferTimer = null;
 function scheduleBufferRecompute() { clearTimeout(bufferTimer); bufferTimer = setTimeout(recomputeAllBuffers, 120); }
 function recomputeAllBuffers() { for (const s of state.scenes) if (s.cls) recomputeBuffer(s); rebuildTimeline(); requestRender(); }
+function finishExcl() {
+  state.exclDrawing = false; $('btnExcl').classList.remove('active'); $('btnExclDone').hidden = true; viewer.classList.remove('drawing');
+  const pts = state.exclPoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
+  state.exclPoints = [];
+  if (pts.length >= 3) state.exclusion.polygons.push(pts);
+  exclusionChanged();
+}
+function exclusionChanged() { state.exclMask = null; save(); updateExclInfo(); syncLegend(); recomputeAllBuffers(); }
+function updateExclInfo() { const ha = state.exclusion.polygons.length ? countMask(exclusionMask()) * state.pxAreaHa : 0; $('exclInfo').textContent = `棚田跡の除外範囲: ${state.exclusion.polygons.length} か所（${ha.toFixed(1)} ha）`; }
 function finishSettle() {
   state.settleDrawing = false; $('btnSettle').classList.remove('active'); $('btnSettleDone').hidden = true; viewer.classList.remove('drawing');
   const pts = state.settlePoints.filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 3);
@@ -765,7 +797,7 @@ function setupViewer() {
       return;
     }
     lastX = e.clientX; lastY = e.clientY; moved = false;
-    if (state.aoiDrawing || state.settleDrawing || state.sampleTool.mode || state.houseTool) return;
+    if (state.aoiDrawing || state.settleDrawing || state.exclDrawing || state.sampleTool.mode || state.houseTool) return;
     if (state.brush.mode !== 0 && !e.shiftKey) { state.brush.painting = true; paintAt(e); return; }
     dragging = true; viewer.style.cursor = 'grabbing';
   });
@@ -803,7 +835,7 @@ function setupViewer() {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
     if (p.x < 0 || p.y < 0 || p.x >= state.W || p.y >= state.H) return;
-    if (!state.sampleTool.mode && !state.houseTool && !state.settleDrawing && !state.aoiDrawing && state.brush.mode === 0) { const k = photoAt(e.clientX - r.left, e.clientY - r.top); if (k >= 0) { showPhoto(k); return; } }
+    if (!state.sampleTool.mode && !state.houseTool && !state.settleDrawing && !state.exclDrawing && !state.aoiDrawing && state.brush.mode === 0) { const k = photoAt(e.clientX - r.left, e.clientY - r.top); if (k >= 0) { showPhoto(k); return; } }
     if (state.sampleTool.mode) { sampleClick(p); return; }
     if (state.houseTool === 'add') {
       const s = selectedScene();
@@ -819,10 +851,11 @@ function setupViewer() {
       return;
     }
     if (state.settleDrawing) { state.settlePoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
+    if (state.exclDrawing) { state.exclPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender(); return; }
     if (!state.aoiDrawing) return;
     state.aoiPoints.push({ x: Math.round(p.x), y: Math.round(p.y) }); requestRender();
   });
-  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } else if (state.settleDrawing) { e.preventDefault(); finishSettle(); } });
+  viewer.addEventListener('dblclick', (e) => { if (state.aoiDrawing) { e.preventDefault(); finishAoi(); } else if (state.settleDrawing) { e.preventDefault(); finishSettle(); } else if (state.exclDrawing) { e.preventDefault(); finishExcl(); } });
   viewer.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = viewer.getBoundingClientRect();
@@ -833,7 +866,7 @@ function setupViewer() {
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') setYear(state.year + (e.shiftKey ? 5 : 0.5));
     else if (e.key === 'ArrowLeft') setYear(state.year - (e.shiftKey ? 5 : 0.5));
-    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
+    else if (e.key === 'Escape') { if (state.aoiDrawing) finishAoi(); if (state.settleDrawing) finishSettle(); if (state.exclDrawing) finishExcl(); if (state.sampleTool.mode) { state.sampleTool.mode = null; $('sampleTools').querySelectorAll('button').forEach(x => x.classList.remove('active')); viewer.classList.remove('drawing'); requestRender(); } }
   });
   new ResizeObserver(() => { fitView(); chart.draw(); }).observe($('viewerWrap'));
 }
@@ -866,7 +899,7 @@ function setupIO() {
   $('btnJson').addEventListener('click', () => download(new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' }), 'forest-buffer-settings.json'));
   $('jsonInput').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; state.settlePolyMask = null; updateSettleInfo(); save(); recomputeAll(); }
+    try { const saved = JSON.parse(await f.text()); applySaved(saved); for (const s of state.scenes) { if (s._pendingCorrection) { s.correction = rleDecode(s._pendingCorrection, Int8Array, state.W * state.H); delete s._pendingCorrection; } } state.aoiMask = state.aoiPoints.length >= 3 ? polygonMask(state.aoiPoints, state.W, state.H) : null; state.settlePolyMask = null; state.exclMask = null; updateSettleInfo(); updateExclInfo(); save(); recomputeAll(); }
     catch (err) { alert('設定を読み込めませんでした: ' + err.message); }
     e.target.value = '';
   });
