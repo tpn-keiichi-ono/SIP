@@ -69,9 +69,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #ticks .tick { position: absolute; top: 0; width: 0; font-size: 10px; color: var(--text-2); cursor: pointer; white-space: nowrap; }
 #ticks .tick .mark { position: absolute; left: -1px; top: 0; width: 2px; height: 7px; background: var(--accent); }
 #ticks .tick .lbl { position: absolute; left: 0; top: 8px; transform: translateX(-50%); }
-#ticks .tick.alt .mark { height: 20px; }
-#ticks .tick.alt .lbl { top: 21px; }
-#ticks { height: 36px; }
+#ticks { height: 24px; }
 #ticks .tick.disappear .mark { background: var(--muted); }
 #ticks .tick.end { color: var(--muted); } #ticks .tick.end .mark { background: var(--muted); }
 #ticks .tick.obs { font-weight: 600; color: var(--text); }

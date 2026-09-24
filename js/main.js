@@ -524,8 +524,6 @@ function updateTimelineUI() {
   let prevYear = -Infinity; const span = tl.xMax - tl.xMin;
   for (const s of tl.scenes) {
     const el = document.createElement('div'); el.className = 'tick'; setPos(el, s.year);
-    // 隣の目盛りと近いときはラベルを一段下げて重なりを避ける
-    if ((s.year - prevYear) / span < 0.07) el.classList.add('alt');
     prevYear = s.year;
     el.classList.add('obs');
     const lb = document.createElement('span'); lb.className = 'lbl'; lb.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.appendChild(lb); el.title = s.label || s.id;
@@ -559,7 +557,15 @@ function updateSliderThumb() {
   const pred = sl.querySelector('.pred'); const px0 = yearToPx(tl.start.year); const px1 = yearToPx(tl.xMax);
   pred.style.left = px0 + 'px'; pred.style.width = Math.max(0, px1 - px0) + 'px'; pred.style.display = px1 - px0 > 1 ? '' : 'none';
   sl.setAttribute('aria-valuemin', tl.xMin); sl.setAttribute('aria-valuemax', tl.xMax); sl.setAttribute('aria-valuenow', state.year);
-  for (const el of $('ticks').querySelectorAll('.tick')) el.style.left = yearToPx(Number(el.dataset.year)) + 'px';
+  const ticks = [...$('ticks').querySelectorAll('.tick')];
+  for (const el of ticks) { el.style.left = yearToPx(Number(el.dataset.year)) + 'px'; el.querySelector('.lbl').style.transform = 'translateX(-50%)'; }
+  // ラベルが重なるときは、線は動かさずラベルだけを左右に押し分ける（同じ段に揃えたまま）
+  const items = ticks.map(el => { const lb = el.querySelector('.lbl'); const x = parseFloat(el.style.left); const w = lb.offsetWidth || 28; return { lb, x, w, cx: x }; }).sort((a, b) => a.x - b.x);
+  for (let pass = 0; pass < 4; pass++) for (let k = 0; k + 1 < items.length; k++) {
+    const a = items[k], b = items[k + 1]; const gap = 4; const overlap = (a.cx + a.w / 2 + gap) - (b.cx - b.w / 2);
+    if (overlap > 0) { a.cx -= overlap / 2; b.cx += overlap / 2; }
+  }
+  for (const it of items) it.lb.style.transform = `translateX(calc(-50% + ${(it.cx - it.x).toFixed(1)}px))`;
 }
 function setupSlider() {
   const sl = $('yearSlider');
