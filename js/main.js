@@ -61,7 +61,7 @@ function drawPhotos(ctx) {
   if (state.display.showPhotos === false || !state.photos.length) return;
   ctx.save();
   state.photos.forEach((p, k) => {
-    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 8 : 5;
+    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 9 : 6;
     if (p.dir != null && (sel || hov)) { // 撮影方向の矢印（カーソルを合わせた点と選択中の点だけ）
       const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
       const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
@@ -72,14 +72,13 @@ function drawPhotos(ctx) {
       ctx.lineTo(tx + Math.cos(a + 2.5) * head, ty + Math.sin(a + 2.5) * head);
       ctx.lineTo(tx + Math.cos(a - 2.5) * head, ty + Math.sin(a - 2.5) * head); ctx.closePath(); ctx.fill();
     }
-    ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fillStyle = sel ? '#ffd400' : 'rgba(40,120,255,0.92)'; ctx.fill();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+    drawCameraIcon(ctx, q.x, q.y, r, sel ? '#ffd400' : 'rgba(40,120,255,0.95)');
   });
   ctx.restore();
 }
 function photoAt(sx, sy) {
   if (state.display.showPhotos === false) return -1;
-  let best = -1, bd = 12;
+  let best = -1, bd = 13;
   state.photos.forEach((p, k) => { const q = toScreen(p.x, p.y); const d = Math.hypot(q.x - sx, q.y - sy); if (d < bd) { bd = d; best = k; } });
   return best;
 }
@@ -436,6 +435,20 @@ function waterWithCoast(scene) {
     coastCache = { scene, cls: scene.cls, mask: m };
   }
   return coastCache.mask;
+}
+/** カメラの形のアイコン（本体＋レンズ＋ファインダー）。r は目安の半径（画素）。 */
+function drawCameraIcon(ctx, x, y, r, fill) {
+  const w = r * 1.9, h = r * 1.4;           // 本体
+  const rx = r * 0.3;
+  ctx.save();
+  ctx.fillStyle = fill; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - h / 2, w, h, rx);
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.rect(x - w * 0.22, y - h / 2 - r * 0.35, w * 0.44, r * 0.4); ctx.fill(); ctx.stroke(); // ファインダーの出っ張り
+  ctx.beginPath(); ctx.arc(x, y + h * 0.05, r * 0.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); // レンズ（白）
+  ctx.beginPath(); ctx.arc(x, y + h * 0.05, r * 0.25, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
+  ctx.restore();
 }
 /** 家の形のアイコン（屋根＋壁）。s は半幅（画素）。 */
 function drawHouseIcon(ctx, x, y, s, fill) {

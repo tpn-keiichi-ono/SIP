@@ -34,7 +34,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-for::before { background: rgba(40,150,70,.7); }
 #legend .l-built::before { background: rgba(235,235,235,.8); }
 #legend .l-house::before { background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M1 7 L7 1.4 L13 7 L11 7 L11 13 L3 13 L3 7 Z' fill='%23fff' stroke='%23333' stroke-width='1.2'/><rect x='6' y='9' width='2' height='4' fill='%23333'/></svg>") center/contain no-repeat; border-radius: 0 !important; width: 13px !important; height: 13px !important; }
-#legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #333; width: 10px !important; height: 10px !important; }
+#legend .l-photo::before { background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 14'><rect x='1' y='4' width='14' height='9' rx='2' fill='%232878ff' stroke='%23333' stroke-width='1'/><rect x='5.5' y='1.5' width='5' height='3' fill='%232878ff' stroke='%23333' stroke-width='1'/><circle cx='8' cy='8.5' r='3' fill='%23fff'/><circle cx='8' cy='8.5' r='1.4' fill='%232878ff'/></svg>") center/contain no-repeat; border-radius: 0 !important; width: 15px !important; height: 13px !important; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
 #photoHover { position: absolute; z-index: 5; pointer-events: none; background: rgba(20,20,20,.92); border-radius: 6px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 #photoHover[hidden] { display: none; }
