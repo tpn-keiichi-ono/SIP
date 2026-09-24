@@ -518,7 +518,8 @@ function updateTimelineUI() {
   updateSliderThumb();
   const ticks = $('ticks'); ticks.innerHTML = '';
   // 目盛りとつまみは同じ座標系（左右の余白 = つまみ半径）で配置する
-  const setPos = (el, yr) => { el.dataset.year = String(yr); };
+  // 目盛り = 線（.mark）とラベル（.lbl）を別要素にし、線を年の位置に正確に置く
+  const setPos = (el, yr) => { el.dataset.year = String(yr); const mk = document.createElement('i'); mk.className = 'mark'; el.prepend(mk); };
   let prevYear = -Infinity; const span = tl.xMax - tl.xMin;
   for (const s of tl.scenes) {
     const el = document.createElement('div'); el.className = 'tick'; setPos(el, s.year);
@@ -526,18 +527,18 @@ function updateTimelineUI() {
     if ((s.year - prevYear) / span < 0.07) el.classList.add('alt');
     prevYear = s.year;
     el.classList.add('obs');
-    el.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.title = s.label || s.id;
+    const lb = document.createElement('span'); lb.className = 'lbl'; lb.textContent = `${s.year}${s.estimated ? '?' : ''}`; el.appendChild(lb); el.title = s.label || s.id;
     el.addEventListener('click', () => setYear(s.year)); ticks.appendChild(el);
   }
   // 軸の右端（予測期間の終わり）
   if (tl.xMax > tl.start.year + 1e-9) {
     const el = document.createElement('div'); el.className = 'tick end'; setPos(el, tl.xMax);
-    el.textContent = `${Math.round(tl.xMax)} 予測`; el.title = `${tl.start.year} 年以降は予測期間`;
+    const lb = document.createElement('span'); lb.className = 'lbl'; lb.textContent = `${Math.round(tl.xMax)} 予測`; el.appendChild(lb); el.title = `${tl.start.year} 年以降は予測期間`;
     el.addEventListener('click', () => setYear(tl.xMax)); ticks.appendChild(el);
   }
   const dy = tl.projection.disappearYear;
   if (dy != null && dy > tl.start.year && dy <= tl.xMax) {
-    const el = document.createElement('div'); el.className = 'tick disappear'; setPos(el, dy); el.textContent = `消失 ${dy.toFixed(0)}`;
+    const el = document.createElement('div'); el.className = 'tick disappear'; setPos(el, dy); const lb = document.createElement('span'); lb.className = 'lbl'; lb.textContent = `消失 ${dy.toFixed(0)}`; el.appendChild(lb);
     el.addEventListener('click', () => setYear(Math.ceil(dy * 2) / 2)); ticks.appendChild(el);
   }
 }
