@@ -488,6 +488,7 @@ function render() {
   updateHud(frame);
   chart.setCurrentYear(state.year);
   updateSliderThumb();
+  const yn = $('yearNow'); if (yn) yn.textContent = `${Math.floor(state.year)} 年`;
 }
 
 function updateHud(frame) {

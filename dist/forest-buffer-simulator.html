@@ -61,8 +61,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; z-index: 5; }
 #loading[hidden] { display: none; }
 #timeline { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px 4px; }
-#timeline .row { display: flex; align-items: center; gap: 10px; }
-#timeline .sliderWrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#timeline .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#timeline .row .spacer { flex: 1; }
+#timeline .yearNow { font-weight: 700; font-size: 15px; min-width: 5em; }
+#timeline .sliderWrap { display: flex; flex-direction: column; min-width: 0; margin-top: 6px; padding: 0 6px; }
 #yearSlider { position: relative; height: 28px; cursor: pointer; touch-action: none; }
 #yearSlider { --thumb-half: 9px; }
 #yearSlider .track { position: absolute; left: var(--thumb-half); right: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: #e2e1dc; }
@@ -130,8 +132,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
   #hud .stats { font-size: 11px; }
   #legend { font-size: 11px; padding: 4px 8px; gap: 4px 10px; }
   #timeline { padding: 8px 10px 2px; }
-  #timeline .row { flex-wrap: wrap; gap: 8px; }
-  #timeline .sliderWrap { flex-basis: 100%; order: 3; }
+  #timeline .row { gap: 8px; }
   #yearSlider { height: 36px; } #yearSlider .track, #yearSlider .fill, #yearSlider .pred { top: 15px; } #yearSlider .thumb { top: 7px; width: 22px; height: 22px; margin-left: -11px; } #yearSlider, #ticks { --thumb-half: 11px; }
   #timeline label { font-size: 12px; }
   #ticks .tick { font-size: 9px; }
@@ -180,14 +181,16 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">過去に緩衝帯だった場所（推定）</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居</span><span class="l-excl" id="legExcl" hidden>棚田跡（除外）</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
       </div>
     <div id="timeline">
-      <div class="row">
+      <div class="row controls">
         <button id="btnPlay" class="primary" title="再生 / 一時停止">▶ 再生</button>
         <button id="btnPrev" title="前の観測時期">◀◀</button>
         <button id="btnNext" title="次の観測時期">▶▶</button>
-        <div class="sliderWrap"><div id="yearSlider" role="slider" tabindex="0" aria-label="年"><div class="track"></div><div class="pred" title="予測期間"></div><div class="fill"></div><div class="thumb"></div></div><div id="ticks"></div></div>
+        <span class="yearNow" id="yearNow"></span>
+        <span class="spacer"></span>
         <label>速度 <select id="speed"><option value="1">1 年/秒</option><option value="3" selected>3 年/秒</option><option value="6">6 年/秒</option><option value="12">12 年/秒</option></select></label>
         <label><input type="checkbox" id="loop"> ループ</label>
       </div>
+      <div class="sliderWrap"><div id="yearSlider" role="slider" tabindex="0" aria-label="年"><div class="track"></div><div class="pred" title="予測期間"></div><div class="fill"></div><div class="thumb"></div></div><div id="ticks"></div></div>
     </div>
     <div id="chartWrap">
       <canvas id="chart"></canvas>
@@ -2015,6 +2018,7 @@ function render() {
   updateHud(frame);
   chart.setCurrentYear(state.year);
   updateSliderThumb();
+  const yn = $('yearNow'); if (yn) yn.textContent = `${Math.floor(state.year)} 年`;
 }
 
 function updateHud(frame) {

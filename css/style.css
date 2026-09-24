@@ -54,8 +54,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; z-index: 5; }
 #loading[hidden] { display: none; }
 #timeline { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px 4px; }
-#timeline .row { display: flex; align-items: center; gap: 10px; }
-#timeline .sliderWrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#timeline .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#timeline .row .spacer { flex: 1; }
+#timeline .yearNow { font-weight: 700; font-size: 15px; min-width: 5em; }
+#timeline .sliderWrap { display: flex; flex-direction: column; min-width: 0; margin-top: 6px; padding: 0 6px; }
 #yearSlider { position: relative; height: 28px; cursor: pointer; touch-action: none; }
 #yearSlider { --thumb-half: 9px; }
 #yearSlider .track { position: absolute; left: var(--thumb-half); right: var(--thumb-half); top: 11px; height: 6px; border-radius: 3px; background: #e2e1dc; }
@@ -123,8 +125,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
   #hud .stats { font-size: 11px; }
   #legend { font-size: 11px; padding: 4px 8px; gap: 4px 10px; }
   #timeline { padding: 8px 10px 2px; }
-  #timeline .row { flex-wrap: wrap; gap: 8px; }
-  #timeline .sliderWrap { flex-basis: 100%; order: 3; }
+  #timeline .row { gap: 8px; }
   #yearSlider { height: 36px; } #yearSlider .track, #yearSlider .fill, #yearSlider .pred { top: 15px; } #yearSlider .thumb { top: 7px; width: 22px; height: 22px; margin-left: -11px; } #yearSlider, #ticks { --thumb-half: 11px; }
   #timeline label { font-size: 12px; }
   #ticks .tick { font-size: 9px; }
