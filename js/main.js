@@ -30,7 +30,7 @@ const state = {
   view: { scale: 1, tx: 0, ty: 0 },
   brush: { mode: 0, size: 12, painting: false },
   recording: null,
-  photos: [], photoIndex: -1,
+  photos: [], photoIndex: -1, photoHover: -1,
 };
 
 // ---------- 現地写真（GPS 付き） ----------
@@ -60,11 +60,11 @@ function drawPhotos(ctx) {
   if (state.display.showPhotos === false || !state.photos.length) return;
   ctx.save();
   state.photos.forEach((p, k) => {
-    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const r = sel ? 8 : 5;
-    if (p.dir != null) { // 撮影方向の矢印
+    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 8 : 5;
+    if (p.dir != null && (sel || hov)) { // 撮影方向の矢印（カーソルを合わせた点と選択中の点だけ）
       const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
       const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
-      const col = sel ? '#ffd400' : 'rgba(255,255,255,0.95)';
+      const col = sel ? '#ffd400' : '#ffffff';
       ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(q.x + Math.cos(a) * r, q.y + Math.sin(a) * r); ctx.lineTo(tx, ty); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(tx + Math.cos(a) * head, ty + Math.sin(a) * head);
@@ -755,6 +755,10 @@ function setupViewer() {
   });
   viewer.addEventListener('pointermove', (e) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.pointerType === 'mouse' && !dragging && !state.brush.painting) {
+      const rr = rectOf(); const k = photoAt(e.clientX - rr.left, e.clientY - rr.top);
+      if (k !== state.photoHover) { state.photoHover = k; viewer.style.cursor = k >= 0 ? 'pointer' : ''; requestRender(); }
+    }
     if (pinch && pointers.size >= 2) {
       const [a, b] = [...pointers.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
@@ -778,6 +782,7 @@ function setupViewer() {
     dragging = false; viewer.style.cursor = '';
   };
   viewer.addEventListener('pointerup', up); viewer.addEventListener('pointercancel', up);
+  viewer.addEventListener('pointerleave', () => { if (state.photoHover >= 0) { state.photoHover = -1; requestRender(); } });
   viewer.addEventListener('click', (e) => {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);

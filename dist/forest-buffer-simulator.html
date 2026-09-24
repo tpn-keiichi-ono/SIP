@@ -41,7 +41,6 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-w); ga
 #legend .l-built::before { background: rgba(235,235,235,.8); }
 #legend .l-house::before { background: #fff; border-radius: 50% !important; border: 1px solid #333; width: 10px !important; height: 10px !important; }
 #legend .l-photo::before { background: rgba(40,120,255,.95); border-radius: 50% !important; border: 1px solid #fff; width: 10px !important; height: 10px !important; }
-#legend .l-photo::after { content: "→"; margin-left: 2px; color: #fff; }
 #legend .l-water::before { background: rgba(60,120,220,.7); }
 #photoPopup { position: absolute; right: 12px; top: 12px; width: 300px; max-width: calc(100% - 24px); background: rgba(20,20,20,.92); color: #fff; border-radius: 8px; padding: 8px; z-index: 4; font-size: 12px; }
 #photoPopup[hidden] { display: none; }
@@ -145,7 +144,7 @@ button, select, input[type=number], input[type=text] { min-height: 32px; }
         <div class="stats" id="hudStats"></div>
       </div>
       <div id="legend">
-        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居の点</span><span class="l-photo" id="legPhoto">現地写真（矢印＝撮影方向）</span>
+        <span class="l-buf">森林緩衝帯</span><span class="l-lost" id="legLost">消失部分</span><span class="l-set" id="legSet">住宅地</span><span class="l-sparse" id="legSparse" hidden>疎林・草地</span><span class="l-field" id="legField" hidden>田畑</span><span class="l-bandlost" id="legBandLost" hidden>帯のうち森林化</span><span class="l-for" id="legFor" hidden>森林</span><span class="l-built" id="legBuilt" hidden>人工物・裸地</span><span class="l-water" id="legWater" hidden>水域</span><span class="l-house" id="legHouse">住居の点</span><span class="l-photo" id="legPhoto">現地写真（カーソルで撮影方向を表示）</span>
       </div>
       <div id="photoPopup" hidden>
         <button id="photoClose" title="閉じる">×</button>
@@ -1509,7 +1508,7 @@ const state = {
   view: { scale: 1, tx: 0, ty: 0 },
   brush: { mode: 0, size: 12, painting: false },
   recording: null,
-  photos: [], photoIndex: -1,
+  photos: [], photoIndex: -1, photoHover: -1,
 };
 
 // ---------- 現地写真（GPS 付き） ----------
@@ -1539,11 +1538,11 @@ function drawPhotos(ctx) {
   if (state.display.showPhotos === false || !state.photos.length) return;
   ctx.save();
   state.photos.forEach((p, k) => {
-    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const r = sel ? 8 : 5;
-    if (p.dir != null) { // 撮影方向の矢印
+    const q = toScreen(p.x, p.y); const sel = k === state.photoIndex; const hov = k === state.photoHover; const r = sel || hov ? 8 : 5;
+    if (p.dir != null && (sel || hov)) { // 撮影方向の矢印（カーソルを合わせた点と選択中の点だけ）
       const a = (p.dir - 90) * Math.PI / 180, len = r + 12, head = 5;
       const tx = q.x + Math.cos(a) * len, ty = q.y + Math.sin(a) * len;
-      const col = sel ? '#ffd400' : 'rgba(255,255,255,0.95)';
+      const col = sel ? '#ffd400' : '#ffffff';
       ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(q.x + Math.cos(a) * r, q.y + Math.sin(a) * r); ctx.lineTo(tx, ty); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(tx + Math.cos(a) * head, ty + Math.sin(a) * head);
@@ -2234,6 +2233,10 @@ function setupViewer() {
   });
   viewer.addEventListener('pointermove', (e) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.pointerType === 'mouse' && !dragging && !state.brush.painting) {
+      const rr = rectOf(); const k = photoAt(e.clientX - rr.left, e.clientY - rr.top);
+      if (k !== state.photoHover) { state.photoHover = k; viewer.style.cursor = k >= 0 ? 'pointer' : ''; requestRender(); }
+    }
     if (pinch && pointers.size >= 2) {
       const [a, b] = [...pointers.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
@@ -2257,6 +2260,7 @@ function setupViewer() {
     dragging = false; viewer.style.cursor = '';
   };
   viewer.addEventListener('pointerup', up); viewer.addEventListener('pointercancel', up);
+  viewer.addEventListener('pointerleave', () => { if (state.photoHover >= 0) { state.photoHover = -1; requestRender(); } });
   viewer.addEventListener('click', (e) => {
     if (moved) return;
     const r = viewer.getBoundingClientRect(); const p = toImage(e.clientX - r.left, e.clientY - r.top);
